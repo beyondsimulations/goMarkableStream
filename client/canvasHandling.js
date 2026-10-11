@@ -35,11 +35,3 @@ function resizeVisibleCanvas() {
 		visibleCanvas.style.transform = "rotate(0deg)";
 	}
 }
-function waiting(message) {
-	// Clear the canvas
-	gl.clearColor(0, 0, 0, 1); // Set clear color (black, in this case)
-	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-	// To show the message
-	messageDiv.textContent = message;
-	messageDiv.style.display = 'block';
-}

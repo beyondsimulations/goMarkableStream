@@ -21,7 +21,6 @@ let useBGRA = UseBGRA;
 const ctx = rawCanvas.getContext('2d');
 const visibleCanvas = document.getElementById("canvas");
 const iFrame = document.getElementById("content");
-const messageDiv = document.getElementById('message');
 
 
 // Initialize the worker

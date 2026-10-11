@@ -61,9 +61,6 @@ function resetReconnectState() {
 
 // Stream message handler as a named function for reuse
 function handleStreamMessage(event) {
-	// To hide the message (e.g., when you start drawing in WebGL again)
-	messageDiv.style.display = 'none';
-
 	const data = event.data;
 
 	switch (data.type) {
@@ -100,7 +97,7 @@ function handleStreamMessage(event) {
 				showConnectionError(event.data.message, false);
 			} else {
 				// Warning or info level - just show message
-				waiting(event.data.message);
+				showMessage(event.data.message, MessageDuration.IMPORTANT);
 			}
 			break;
 	}
@@ -198,9 +195,6 @@ eventWorker.onmessage = (event) => {
 	// Reset the timer every time a message is received
 	clearTimeout(messageTimeout);
 	messageTimeout = setTimeout(clearLaser, 300);
-
-	// To hide the message (e.g., when you start drawing in WebGL again)
-	messageDiv.style.display = 'none';
 
 	const data = event.data;
 
