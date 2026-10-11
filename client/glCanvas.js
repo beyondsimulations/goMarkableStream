@@ -145,6 +145,12 @@ void main(void) {
 // Switch between ink-only (transparent paper) and the full white page.
 function setPaperTransparent(enabled) {
 	paperTransparent = enabled;
+	// Over embedded content, the white page also hides that content so the
+	// whole window becomes a clean white board, not just the page's area.
+	if (iFrame.getAttribute('src')) {
+		iFrame.style.visibility = enabled ? 'visible' : 'hidden';
+		document.getElementById('container').style.background = enabled ? 'transparent' : '#fff';
+	}
 	// Without WebGL this script stopped before the program was created.
 	if (gl) {
 		drawScene(gl, programInfo, positionBuffer, textureCoordBuffer, texture);
