@@ -88,8 +88,10 @@ void main(void) {
         // stays opaque, coloured and anti-aliased pixels keep their hue. The
         // result is premultiplied (rgb already scaled by alpha), and looks
         // identical to the original pixel when shown over a white background.
+        // Scaling by the texture's alpha keeps the empty texture shown before
+        // the first frame transparent instead of black.
         float whiteness = min(texColor.r, min(texColor.g, texColor.b));
-        finalColor = vec4(texColor.rgb - vec3(whiteness), 1.0 - whiteness);
+        finalColor = vec4(texColor.rgb - vec3(whiteness), 1.0 - whiteness) * texColor.a;
     }
 
     // Render trail points (oldest to newest, back to front)
@@ -148,8 +150,8 @@ function setPaperTransparent(enabled) {
 	// Over embedded content, the white page also hides that content so the
 	// whole window becomes a clean white board, not just the page's area.
 	if (iFrame.getAttribute('src')) {
-		iFrame.style.visibility = enabled ? 'visible' : 'hidden';
-		document.getElementById('container').style.background = enabled ? 'transparent' : '#fff';
+		iFrame.style.visibility = enabled ? '' : 'hidden';
+		document.getElementById('container').style.background = enabled ? '' : '#fff';
 	}
 	// Without WebGL this script stopped before the program was created.
 	if (gl) {

@@ -241,8 +241,8 @@ document.addEventListener('keydown', function(e) {
             break;
         case 'b':
             // Paper background toggle (ink only <-> white page), presentation mode
-            // only, and not on browser shortcuts such as Ctrl+B
-            if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey) {
+            // only, and not on browser shortcuts such as Ctrl+B or key repeat
+            if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
                 break;
             }
             setPaperTransparent(!paperTransparent);
