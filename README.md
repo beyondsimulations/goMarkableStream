@@ -222,6 +222,7 @@ Configure the application via environment variables:
 - `RK_HTTPS`: (True/False, default: `true`) Enable or disable HTTPS.
 - `RK_DEV_MODE`: (True/False, default: `false`) Enable or disable developer mode.
 - `RK_DELTA_THRESHOLD`: (Float, default: `0.30`) Change ratio threshold (0.0-1.0) above which a full frame is sent instead of delta.
+- `RK_FB_CANDIDATE`: (Integer, default: `-1` = automatic, Paper Pro only) Forces the n-th framebuffer candidate listed in the startup log, in case the automatic choice shows the wrong picture. Meant for diagnosis: the numbering can change when xochitl restarts.
 
 ### Tailscale Configuration
 
