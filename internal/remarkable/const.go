@@ -14,6 +14,12 @@ const (
 	// ScreenSizeBytes is the total memory size of the screen buffer in bytes
 	ScreenSizeBytes = ScreenWidth * ScreenHeight * 2
 
+	// FramebufferStorageWidth is the width of one framebuffer row in memory,
+	// in pixels. Rows are not padded on the reMarkable 2.
+	FramebufferStorageWidth = ScreenWidth
+	// FramebufferStorageSizeBytes is the size of the buffer as stored in memory.
+	FramebufferStorageSizeBytes = ScreenSizeBytes
+
 	// MaxXValue represents the maximum X coordinate value from /dev/input/event1 (ABS_X)
 	MaxXValue = 15725
 	// MaxYValue represents the maximum Y coordinate value from /dev/input/event1 (ABS_Y)
