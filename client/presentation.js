@@ -23,6 +23,8 @@ const PRESENT_STATUS_TEXT = {
 	disconnected: 'Not connected'
 };
 
+let presentTray = null;
+let presentTrayVisible = false;
 let presentTrayTimer = null;
 let presentHintTimer = null;
 let presentRetryHandler = null;
@@ -34,12 +36,20 @@ function isPresenting() {
 function initPresentationChrome() {
 	document.body.classList.add('presenting');
 
-	const tray = document.getElementById('presentTray');
+	presentTray = document.getElementById('presentTray');
 	document.addEventListener('mousemove', showPresentTray);
 	document.addEventListener('touchstart', showPresentTray, { passive: true });
-	tray.addEventListener('mouseleave', schedulePresentTrayHide);
-	tray.addEventListener('focusin', showPresentTray);
-	tray.addEventListener('focusout', schedulePresentTrayHide);
+	presentTray.addEventListener('mouseleave', schedulePresentTrayHide);
+	presentTray.addEventListener('focusin', showPresentTray);
+	// A mouse click leaves no focus in the bar, so a later key press cannot
+	// make a button :focus-visible and hold the bar on the projector. Keyboard
+	// activation (detail 0) keeps its focus.
+	presentTray.addEventListener('click', (e) => {
+		const button = e.target.closest('button');
+		if (button && e.detail > 0) {
+			button.blur();
+		}
+	});
 
 	document.getElementById('presentBoard').addEventListener('click', () => {
 		setPaperTransparent(!paperTransparent);
@@ -66,25 +76,35 @@ function initPresentationChrome() {
 }
 
 function showPresentTray() {
-	document.getElementById('presentTray').classList.add('visible');
-	document.body.classList.add('present-controls-visible');
-	hidePresentKeyHint();
+	// While the bar is up, pointer movement only re-arms the hide timer.
+	if (!presentTrayVisible) {
+		presentTrayVisible = true;
+		// Some paths change a mode without an event (saved preferences), so
+		// the bar reads the current state each time it appears.
+		refreshPresentTray();
+		presentTray.classList.add('visible');
+		document.body.classList.add('present-controls-visible');
+		hidePresentKeyHint();
+	}
 	schedulePresentTrayHide();
 }
 
 function schedulePresentTrayHide() {
 	clearTimeout(presentTrayTimer);
-	presentTrayTimer = setTimeout(() => {
-		const tray = document.getElementById('presentTray');
-		// Stay while the pointer is on the bar or the keyboard is in it. A mouse
-		// click focuses a button without :focus-visible, so it does not hold the
-		// bar on the projector.
-		if (tray.matches(':hover') || tray.querySelector(':focus-visible')) {
-			return;
-		}
-		tray.classList.remove('visible');
-		document.body.classList.remove('present-controls-visible');
-	}, PRESENT_TRAY_IDLE_MS);
+	presentTrayTimer = setTimeout(hidePresentTrayIfIdle, PRESENT_TRAY_IDLE_MS);
+}
+
+function hidePresentTrayIfIdle() {
+	// Stay while the pointer is on the bar or the keyboard is in it, and look
+	// again later. A mouse click focuses a button without :focus-visible, so
+	// it does not hold the bar on the projector.
+	if (presentTray.matches(':hover') || presentTray.querySelector(':focus-visible')) {
+		schedulePresentTrayHide();
+		return;
+	}
+	presentTrayVisible = false;
+	presentTray.classList.remove('visible');
+	document.body.classList.remove('present-controls-visible');
 }
 
 function refreshPresentTray() {
@@ -101,9 +121,11 @@ function showPresentKeyHint() {
 	if (localStorage.getItem(PRESENT_HINT_KEY)) {
 		return;
 	}
-	localStorage.setItem(PRESENT_HINT_KEY, 'true');
 	const hint = document.getElementById('presentKeyHint');
 	presentHintTimer = setTimeout(() => {
+		// Marked as seen once it is on screen, so a hint that an early pointer
+		// movement cut short comes back next time.
+		localStorage.setItem(PRESENT_HINT_KEY, 'true');
 		hint.classList.add('visible');
 		presentHintTimer = setTimeout(hidePresentKeyHint, PRESENT_HINT_MS);
 	}, PRESENT_HINT_DELAY_MS);
