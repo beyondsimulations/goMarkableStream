@@ -18,10 +18,15 @@ const MessageDuration = {
 // Track the current message timeout to prevent race conditions
 let messageTimeoutId = null;
 
+// The persistent status message, if any. A transient message covers it for
+// its duration and then hands the line back to it.
+let statusMessageText = null;
+
 // Function to show a message with auto-hide after specified duration
 function showMessage(message, duration = MessageDuration.NORMAL) {
 	const messageDiv = document.getElementById('message');
 	messageDiv.textContent = message;
+	messageDiv.classList.remove('info');
 	messageDiv.classList.add('visible');
 
 	// Clear any pending timeout
@@ -31,14 +36,19 @@ function showMessage(message, duration = MessageDuration.NORMAL) {
 
 	// Auto-hide after specified duration
 	messageTimeoutId = setTimeout(() => {
-		messageDiv.classList.remove('visible');
 		messageTimeoutId = null;
+		if (statusMessageText) {
+			showStatusMessage(statusMessageText);
+		} else {
+			messageDiv.classList.remove('visible');
+		}
 	}, duration);
 }
 
 // Show persistent status message (e.g., for Funnel mode)
 function showStatusMessage(message) {
 	const messageDiv = document.getElementById('message');
+	statusMessageText = message;
 
 	// Clear any pending timeout from transient messages
 	if (messageTimeoutId) {
@@ -54,15 +64,12 @@ function showStatusMessage(message) {
 // Hide persistent status message
 function hideStatusMessage() {
 	const messageDiv = document.getElementById('message');
-	messageDiv.classList.remove('visible');
+	statusMessageText = null;
 	messageDiv.classList.remove('info');
-}
-
-// Wait/loading message display
-function waiting(message) {
-	const messageDiv = document.getElementById('message');
-	messageDiv.innerHTML = `${message} <span class="loading-dots"></span>`;
-	messageDiv.classList.add('visible');
+	// A transient message on screen keeps its own timeout.
+	if (!messageTimeoutId) {
+		messageDiv.classList.remove('visible');
+	}
 }
 
 // Connection status management

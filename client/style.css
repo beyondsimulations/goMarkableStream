@@ -1,76 +1,98 @@
-/* CSS styles for the layout - reMarkable Ark Design System */
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
+/* CSS styles for the layout, in the BeyondSimulations Family UI ("Paper under glass") */
+
+/* Fraunces 9pt SemiBold, the family's brand face: wordmarks, titles and headings
+   only. SIL Open Font License 1.1, see fonts/LICENSE-Fraunces.txt. Everything
+   read is set in the system font. */
+@font-face {
+    font-family: 'Fraunces';
+    src: url('fonts/Fraunces9pt-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
 
 /* ============================================
-   Design System: reMarkable Ark Light Theme
-   "Digital Paper" - Organic & Minimal
+   Design Tokens: Family UI (light)
+   Colour is signal only: green done, orange needs you, never red. Ink
+   (#1c1c1e) is the primary button and the selection.
    ============================================ */
 
 :root {
-    /* Base Colors - Light Neutral Theme */
-    --bg-base: #fcfbf8;
-    --bg-surface: #f7f6f3;
-    --bg-elevated: #ffffff;
+    color-scheme: light dark;
+    /* Surfaces */
+    --bg-base: #f2f2f4;
+    --bg-surface: #f6f6f8;
+    --bg-elevated: #fbfbfc;
 
-    /* Text Hierarchy - Soft Contrast */
-    --text-primary: #211e1c;
-    --text-secondary: rgba(33, 30, 28, 0.7);
-    --text-tertiary: rgba(33, 30, 28, 0.65);
-    --text-muted: rgba(33, 30, 28, 0.50);
+    /* Text: primary for what you read to act on, secondary for support */
+    --text-primary: #1d1d1f;
+    --text-secondary: rgba(0, 0, 0, 0.5);
+    --text-tertiary: rgba(0, 0, 0, 0.5);
+    --text-muted: rgba(0, 0, 0, 0.5);
 
-    /* Accent - Pen Blue */
-    --accent-color: #1142d4;
-    --accent-hover: #0d35a8;
-    --accent-light: rgba(17, 66, 212, 0.1);
-    --accent-glow: rgba(17, 66, 212, 0.15);
+    /* Ink: the primary button and the selection; on-accent is its label */
+    --accent-color: #1c1c1e;
+    --accent-hover: #3a3a3c;
+    --accent-light: rgba(0, 0, 0, 0.06);
+    --accent-glow: rgba(0, 0, 0, 0.08);
+    --on-accent: #ffffff;
 
-    /* Glass Surfaces - Light Theme */
-    --glass-bg: rgba(252, 251, 248, 0.85);
-    --glass-bg-hover: rgba(247, 246, 243, 0.95);
-    --glass-bg-active: rgba(240, 239, 236, 1);
-    --glass-border: rgba(33, 30, 28, 0.08);
-    --glass-border-hover: rgba(33, 30, 28, 0.15);
+    /* Glass for floating chrome; hover and active are row overlays */
+    --glass-bg: rgba(250, 250, 250, 0.66);
+    --glass-bg-hover: rgba(0, 0, 0, 0.05);
+    --glass-bg-active: rgba(0, 0, 0, 0.09);
+    --glass-border: rgba(0, 0, 0, 0.09);
+    --glass-border-hover: rgba(0, 0, 0, 0.14);
+    --glass-highlight: rgba(255, 255, 255, 0.7);
+    --material-bg: rgba(246, 246, 248, 0.82);
+    --card-bg: rgba(255, 255, 255, 0.6);
 
-    /* Semantic Colors */
-    --color-success: #2d8a4e;
-    --color-success-light: rgba(45, 138, 78, 0.1);
-    --color-success-glow: rgba(45, 138, 78, 0.2);
-    --color-warning: #b8860b;
-    --color-warning-light: rgba(184, 134, 11, 0.1);
-    --color-warning-glow: rgba(184, 134, 11, 0.2);
-    --color-error: #c53030;
-    --color-error-light: rgba(197, 48, 48, 0.1);
-    --color-error-glow: rgba(197, 48, 48, 0.2);
+    /* Signal colours. Warning and error are both "needs you" (orange, the
+       darker text tone for AA contrast): the family has no red. */
+    --color-success: #28a745;
+    --color-success-light: rgba(40, 167, 69, 0.1);
+    --color-success-glow: rgba(40, 167, 69, 0.2);
+    --color-warning: #c96f00;
+    --color-warning-light: rgba(255, 149, 0, 0.12);
+    --color-warning-glow: rgba(255, 149, 0, 0.2);
+    --color-error: #c96f00;
+    --color-error-light: rgba(255, 149, 0, 0.12);
+    --color-error-glow: rgba(255, 149, 0, 0.2);
+    --color-needs-you: #ff9500;
+    --color-waiting: rgba(0, 0, 0, 0.45);
 
     /* Blur Values */
     --blur-sm: 8px;
     --blur-md: 16px;
-    --blur-lg: 24px;
+    --blur-lg: 30px;
     --blur-xl: 40px;
 
-    /* Shadows - Very Subtle */
-    --shadow-sm: 0 1px 3px rgba(33, 30, 28, 0.04);
-    --shadow-md: 0 4px 12px rgba(33, 30, 28, 0.06);
-    --shadow-lg: 0 8px 24px rgba(33, 30, 28, 0.08);
-    --shadow-xl: 0 16px 48px rgba(33, 30, 28, 0.1);
+    /* Shadows: a 0.5px hairline plus a soft lift for floating surfaces */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 12px 34px rgba(0, 0, 0, 0.14);
+    --shadow-xl: 0 18px 50px rgba(0, 0, 0, 0.22);
+    --hairline: inset 0 0 0 0.5px var(--glass-border);
 
-    /* Layout */
-    --sidebar-width: 220px;
+    /* Layout: the sidebar is the family's 300-wide status panel */
+    --sidebar-width: 300px;
     --sidebar-collapsed-width: 12px;
 
-    /* Transitions */
-    --transition-fast: 0.15s ease;
+    /* Motion: colour 0.2s, reveals 0.3s, toolbars 0.4s */
+    --transition-fast: 0.2s ease;
     --transition-normal: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     --transition-slow: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 
-    /* Typography */
-    --font-sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    --font-serif: 'Source Serif 4', 'Book Antiqua', Palatino, 'Times New Roman', serif;
+    /* Typography: the system font for everything read, Fraunces for titles */
+    --font-sans: -apple-system, BlinkMacSystemFont, system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-serif: 'Fraunces', ui-serif, 'New York', Georgia, serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
 
-    /* Border Radius - Strict/Modern */
-    --radius-sm: 2px;
-    --radius-md: 4px;
-    --radius-lg: 8px;
+    /* Radii: rows 8, cards 12, panels 16, controls are capsules */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-panel: 16px;
     --radius-pill: 9999px;
 
     /* Z-Index System */
@@ -1585,28 +1607,25 @@ canvas.hidden {
 }
 
 /* ============================================
-   Accessibility: Reduced Motion
+   Accessibility: Reduce Motion (Family UI RULES 12)
+   Nothing slides, scales, turns or resizes; colour and opacity fades stay.
    ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
+    /* Nothing slides, scales or spins: animations jump to their end and
+       transitions keep only colour and opacity, so a change of position or
+       size lands at once while fades still fade. */
     *,
     *::before,
     *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
+        transition-property: opacity, visibility, color, background-color, border-color, box-shadow !important;
     }
 
-    .onboarding-hint.visible {
-        animation: none;
-    }
-
-    .apple-button.toggled::after {
-        animation: none;
-    }
-
-    .status-indicator.reconnecting .status-dot {
-        animation: none;
+    /* The message only fades (familyFadeIn), so it keeps its animation. */
+    #message.visible {
+        animation-duration: 0.25s !important;
     }
 }
 
@@ -1852,7 +1871,7 @@ canvas.hidden {
         gap: 8px;
     }
 
-    .help-item span:first-of-type {
+    .help-item .gesture-icon + span {
         grid-column: 2;
         grid-row: 1;
     }
@@ -1930,63 +1949,54 @@ canvas.hidden {
    Fallback for browsers without backdrop-filter
    ============================================ */
 
-@supports not (backdrop-filter: blur(10px)) {
-    .sidebar {
-        background: rgba(252, 251, 248, 0.98);
-    }
-
-    .status-indicator {
-        background: rgba(252, 251, 248, 0.98);
-    }
-
-    .help-content {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    .connection-error {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    #message {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    .toast {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    .reconnect-banner {
-        background: var(--color-warning);
-    }
-
-    .menu li .button-tooltip {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    .help-overlay {
-        background-color: rgba(33, 30, 28, 0.6);
-    }
-}
-
 /* ============================================
-   Dark Theme Support (Optional)
+   Design Tokens: Family UI (dark)
+   The page follows the system appearance.
    ============================================ */
 
-[data-theme="dark"] {
-    --bg-base: #211e1c;
-    --bg-surface: #2a2724;
-    --bg-elevated: #332f2c;
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-base: #1c1c1e;
+        --bg-surface: #2c2c2e;
+        --bg-elevated: #2a2a2e;
 
-    --text-primary: #fcfbf8;
-    --text-secondary: rgba(252, 251, 248, 0.7);
-    --text-tertiary: rgba(252, 251, 248, 0.65);
-    --text-muted: rgba(252, 251, 248, 0.50);
+        --text-primary: #f5f5f7;
+        --text-secondary: rgba(255, 255, 255, 0.55);
+        --text-tertiary: rgba(255, 255, 255, 0.55);
+        --text-muted: rgba(255, 255, 255, 0.55);
 
-    --glass-bg: rgba(33, 30, 28, 0.85);
-    --glass-bg-hover: rgba(42, 39, 36, 0.95);
-    --glass-bg-active: rgba(51, 47, 44, 1);
-    --glass-border: rgba(252, 251, 248, 0.1);
-    --glass-border-hover: rgba(252, 251, 248, 0.18);
+        --accent-color: #f5f5f7;
+        --accent-hover: #ffffff;
+        --accent-light: rgba(255, 255, 255, 0.1);
+        --accent-glow: rgba(255, 255, 255, 0.12);
+        --on-accent: #1c1c1e;
+
+        --glass-bg: rgba(40, 40, 44, 0.72);
+        --glass-bg-hover: rgba(255, 255, 255, 0.08);
+        --glass-bg-active: rgba(255, 255, 255, 0.12);
+        --glass-border: rgba(255, 255, 255, 0.1);
+        --glass-border-hover: rgba(255, 255, 255, 0.16);
+        --glass-highlight: rgba(255, 255, 255, 0.2);
+        --material-bg: rgba(34, 34, 38, 0.82);
+        --card-bg: rgba(255, 255, 255, 0.06);
+
+        --color-success: #30d158;
+        --color-success-light: rgba(48, 209, 88, 0.12);
+        --color-success-glow: rgba(48, 209, 88, 0.2);
+        --color-warning: #ff9f0a;
+        --color-warning-light: rgba(255, 159, 10, 0.14);
+        --color-warning-glow: rgba(255, 159, 10, 0.2);
+        --color-error: #ff9f0a;
+        --color-error-light: rgba(255, 159, 10, 0.14);
+        --color-error-glow: rgba(255, 159, 10, 0.2);
+        --color-needs-you: #ff9f0a;
+        --color-waiting: rgba(255, 255, 255, 0.55);
+
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+        --shadow-lg: 0 12px 34px rgba(0, 0, 0, 0.45);
+        --shadow-xl: 0 18px 50px rgba(0, 0, 0, 0.55);
+    }
 }
 
 /* ============================================
@@ -2109,6 +2119,804 @@ canvas.hidden {
 }
 
 /* ============================================
+   Family UI Look
+   Component shapes from the BeyondSimulations Family UI, on top of the tokens
+   above: the sidebar is the status panel, buttons are capsules (ink for the
+   one primary action), status is a material label whose dot carries the
+   colour, keys are key caps, and things fade instead of sliding or scaling.
+   ============================================ */
+
+body,
+html {
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Focus rings keep the system accent. */
+.apple-button:focus-visible,
+.screenshot-btn:focus-visible,
+.hamburger-menu:focus-visible,
+.help-close:focus-visible,
+.connection-error button:focus-visible,
+.login-button:focus-visible {
+    outline: 2px solid Highlight;
+    outline: 2px solid AccentColor;
+    outline-offset: 2px;
+}
+
+/* --- Sidebar: the status panel (300 wide, 14 padding, 28-high rows) --- */
+
+.sidebar {
+    padding: 14px;
+    box-sizing: border-box;
+    border-right: 0.5px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-lg);
+}
+
+.sidebar.active {
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-xl);
+}
+
+.sidebar::after {
+    display: none;
+}
+
+.sidebar-header {
+    padding: 4px 0 12px;
+    margin-bottom: 8px;
+    border-bottom: 0.5px solid var(--glass-border);
+}
+
+.sidebar-logo {
+    width: 28px;
+    height: 28px;
+    margin-right: 10px;
+    border-radius: 7px;
+    box-shadow: var(--hairline);
+}
+
+.sidebar-header:hover .sidebar-logo {
+    transform: none;
+}
+
+.sidebar-header h3 {
+    font: 600 17px/1.2 var(--font-serif);
+    letter-spacing: 0;
+}
+
+.menu {
+    margin: 0;
+}
+
+/* The hover highlight bleeds 6 past the text, radius 8. */
+.menu li {
+    margin: 0 -6px;
+    border-radius: var(--radius-md);
+    animation: none;
+}
+
+.menu li:hover {
+    background-color: var(--glass-bg-hover);
+}
+
+.menu li button {
+    min-height: 28px;
+    padding: 4px 6px;
+}
+
+.apple-button {
+    border: 0;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 400;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.apple-button:hover {
+    background-color: transparent;
+}
+
+.apple-button:active {
+    transform: none;
+    background-color: var(--glass-bg-active);
+}
+
+/* The label fills the row, so the trailing columns line up. */
+.apple-button > span:not(.menu-shortcut) {
+    flex: 1;
+}
+
+/* Glyph column: 24 wide, 10 before the text. Glyphs are neutral. */
+.button-icon {
+    flex: none;
+    width: 24px;
+    height: 17px;
+    margin-right: 10px;
+    color: var(--text-secondary);
+}
+
+.apple-button:hover .button-icon {
+    transform: none;
+}
+
+.apple-button.toggled {
+    background: transparent;
+    border-color: transparent;
+    font-weight: 400;
+}
+
+.apple-button.toggled .button-icon {
+    color: var(--text-primary);
+}
+
+/* An enabled mode is a checkmark on the trailing side, before the shortcut.
+   It takes no room while the mode is off. */
+.apple-button.toggled::after {
+    content: '\2713';
+    position: static;
+    order: 2;
+    width: auto;
+    height: auto;
+    margin-left: 8px;
+    background: none;
+    border-radius: 0;
+    animation: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* The shortcut column is always present, so the checkmarks line up. */
+.menu-shortcut {
+    order: 3;
+    min-width: 18px;
+    margin-left: 8px;
+    text-align: right;
+    font: 11px var(--font-mono);
+    color: var(--text-secondary);
+}
+
+/* The shortcut column shows the keys, so only Public Share keeps its tooltip
+   (it says that the local stream pauses). */
+.menu li .button-tooltip {
+    display: none;
+    background: var(--material-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 0;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--hairline), var(--shadow-lg);
+    font-size: 12px;
+}
+
+.menu li #funnelButton .button-tooltip {
+    display: block;
+}
+
+.menu li .button-tooltip::after {
+    display: none;
+}
+
+.sidebar-footer {
+    padding: 12px 0 0;
+    border-top: 0.5px solid var(--glass-border);
+    color: var(--text-secondary);
+}
+
+/* --- Key caps (help, tooltips, the full screen hint) --- */
+
+.button-tooltip kbd,
+.help-content kbd,
+.fullscreen-hint kbd {
+    display: inline-block;
+    padding: 2px 5px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    box-shadow: inset 0 0 0 0.5px var(--present-keycap-ring);
+    font: 600 10px/1.2 var(--font-mono);
+    color: var(--text-primary);
+    min-width: 18px;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+/* --- Buttons: one ink capsule per surface, secondary actions bordered --- */
+
+.connection-error .error-primary-btn {
+    min-height: 28px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--accent-color);
+    color: var(--on-accent);
+    font: 500 13px/28px var(--font-sans);
+    box-shadow: none;
+}
+
+.connection-error .error-primary-btn:hover {
+    background: var(--accent-hover);
+    transform: none;
+    box-shadow: none;
+}
+
+.connection-error .error-secondary-btn {
+    min-height: 28px;
+    padding: 0 14px;
+    border: 0.5px solid var(--glass-border-hover);
+    border-radius: var(--radius-pill);
+    background: var(--glass-bg-hover);
+    color: var(--text-primary);
+    font: 500 13px/28px var(--font-sans);
+}
+
+.connection-error .error-secondary-btn:hover {
+    background: var(--glass-bg-active);
+    transform: none;
+}
+
+/* --- Connection status: a material label, the colour on the dot only.
+   Grey resolves itself, green is live, orange needs you. --- */
+
+.status-indicator,
+.status-indicator.collapsed,
+.status-indicator.connected {
+    height: 24px;
+    padding: 0 10px;
+    gap: 6px;
+    box-sizing: border-box;
+    border: 0;
+    background: var(--material-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--hairline), var(--shadow-md);
+}
+
+.status-indicator.hidden {
+    transform: none;
+}
+
+.status-dot,
+.status-indicator.paused .status-dot,
+.status-indicator.rate-limited .status-dot,
+.status-indicator.reconnecting .status-dot {
+    width: 7px;
+    height: 7px;
+    background-color: var(--color-waiting);
+    box-shadow: none;
+    animation: none;
+}
+
+.status-indicator.connected .status-dot {
+    background-color: var(--color-success);
+    box-shadow: none;
+}
+
+.status-indicator.disconnected .status-dot {
+    background-color: var(--color-needs-you);
+    box-shadow: none;
+}
+
+.status-label,
+.status-indicator.connected .status-label,
+.status-indicator.paused .status-label,
+.status-indicator.rate-limited .status-label,
+.status-indicator.reconnecting .status-label,
+.status-indicator.disconnected .status-label {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-primary);
+}
+
+/* Reconnecting resolves itself: a grey material capsule that fades in at the
+   top, not an orange bar sliding down. */
+.reconnect-banner {
+    top: 16px;
+    left: 50%;
+    right: auto;
+    height: 28px;
+    padding: 0 14px;
+    gap: 8px;
+    box-sizing: border-box;
+    background: var(--material-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: var(--text-primary);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--hairline), var(--shadow-md);
+    transform: translateX(-50%);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition-normal), visibility 0s linear 0.3s;
+}
+
+.reconnect-banner.visible {
+    transform: translateX(-50%);
+    opacity: 1;
+    visibility: visible;
+    transition: opacity var(--transition-normal), visibility 0s;
+}
+
+.reconnect-spinner {
+    width: 12px;
+    height: 12px;
+    border-width: 1.5px;
+    border-color: var(--glass-border-hover);
+    border-top-color: var(--text-secondary);
+}
+
+.reconnect-text {
+    font-size: 12px;
+    font-weight: 400;
+}
+
+/* --- Floating controls: glass circles, no scaling --- */
+
+.screenshot-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--hairline), var(--shadow-md);
+}
+
+.screenshot-btn:hover,
+.screenshot-btn:active {
+    transform: none;
+}
+
+.screenshot-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.hamburger-menu {
+    border: 0;
+    border-radius: var(--radius-pill);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--hairline), var(--shadow-md);
+}
+
+.hamburger-menu:hover,
+.hamburger-menu:active {
+    background: var(--glass-bg);
+    transform: none;
+}
+
+/* The QR code stays on its card on hover, without lifting. */
+#qrCodeContainer:hover {
+    background: var(--bg-elevated);
+    border-color: var(--glass-border-hover);
+    box-shadow: none;
+    transform: none;
+}
+
+/* --- Messages and hints: material, fading without scaling --- */
+
+#message {
+    padding: 12px 18px;
+    border: 0;
+    border-radius: var(--radius-lg);
+    background: var(--material-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--hairline), var(--shadow-lg);
+    color: var(--text-primary);
+    font-size: 13px;
+    transform: translate(-50%, -50%);
+}
+
+#message.visible {
+    transform: translate(-50%, -50%);
+    animation: familyFadeIn 0.25s ease;
+}
+
+#message.info {
+    color: var(--text-primary);
+}
+
+@keyframes familyFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.toast,
+.toast.visible {
+    transform: none;
+}
+
+.toast {
+    border: 0;
+    border-radius: var(--radius-lg);
+    background: var(--material-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--hairline), var(--shadow-lg);
+    font-size: 13px;
+}
+
+.onboarding-hint {
+    padding: 0 14px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    border-radius: var(--radius-pill);
+    background: var(--material-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--hairline), var(--shadow-md);
+    color: var(--text-primary);
+    font-size: 12px;
+}
+
+/* No nudging: the hint stays still. */
+.onboarding-hint.visible {
+    animation: none;
+}
+
+.onboarding-arrow {
+    border-right-color: var(--material-bg);
+}
+
+.fullscreen-hint {
+    height: 34px;
+    padding: 0 16px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--material-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--hairline), 0 6px 20px rgba(0, 0, 0, 0.2);
+    font-size: 12px;
+}
+
+/* --- Dialogs: one card (never nested), Fraunces title, state voice --- */
+
+.connection-error {
+    border: 0;
+    border-radius: var(--radius-panel);
+    background: var(--material-bg);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    box-shadow: var(--hairline), var(--shadow-xl);
+    transform: translate(-50%, -50%);
+}
+
+.connection-error.visible {
+    transform: translate(-50%, -50%);
+}
+
+.connection-error {
+    text-align: left;
+}
+
+.connection-error .error-icon {
+    margin: 0 0 12px;
+    color: var(--color-needs-you);
+}
+
+.connection-error .error-buttons {
+    justify-content: flex-start;
+}
+
+.connection-error .error-icon svg {
+    width: 32px;
+    height: 32px;
+}
+
+.connection-error h3 {
+    color: var(--text-primary);
+    font: 600 22px/1.2 var(--font-serif);
+}
+
+.connection-error .error-message {
+    font-size: 13px;
+}
+
+.connection-error .error-troubleshooting {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.connection-error .error-troubleshooting h4 {
+    margin: 0 0 4px;
+    color: var(--text-primary);
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.connection-error .error-troubleshooting ul {
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.connection-error .error-technical code {
+    font-family: var(--font-mono);
+}
+
+.help-overlay,
+.login-modal {
+    background-color: rgba(0, 0, 0, 0.25);
+}
+
+.help-content,
+.login-content {
+    border: 0;
+    border-radius: var(--radius-panel);
+    background: var(--material-bg);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    box-shadow: var(--hairline), var(--shadow-xl);
+}
+
+.help-content h2,
+.login-content h2 {
+    font: 600 22px/1.2 var(--font-serif);
+    color: var(--text-primary);
+}
+
+.login-content h2 {
+    text-align: left;
+}
+
+/* On a phone the help is a full-screen sheet: square corners, and its
+   padding inside the screen rather than past its edges. */
+@media (max-width: 480px) {
+    .help-content {
+        box-sizing: border-box;
+        border-radius: 0;
+    }
+}
+
+.help-section {
+    margin-bottom: 16px;
+}
+
+.help-section h3 {
+    margin: 0 0 8px;
+    font: 600 17px/1.2 var(--font-serif);
+    color: var(--text-primary);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* Each section is one card of rows with hairline dividers (RULES 4) */
+.help-grid {
+    gap: 0;
+    border-radius: var(--radius-lg);
+    background: var(--card-bg);
+    box-shadow: var(--hairline);
+}
+
+.help-item {
+    position: relative;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.help-item:hover {
+    background: transparent;
+}
+
+.help-item + .help-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 16px;
+    right: 0;
+    height: 0.5px;
+    background: var(--glass-border);
+}
+
+.gesture-icon {
+    color: var(--text-secondary);
+}
+
+.help-grid.shortcuts .help-item {
+    grid-template-columns: 60px 1fr;
+}
+
+.help-grid.shortcuts .help-item > kbd {
+    justify-self: start;
+}
+
+.help-keys {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.help-close {
+    background: var(--glass-bg-hover);
+}
+
+.form-group label {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.form-group input {
+    border: 0.5px solid var(--glass-border-hover);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    font-size: 15px;
+}
+
+.form-group input:focus {
+    outline: 2px solid Highlight;
+    outline: 2px solid AccentColor;
+    outline-offset: 0;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.login-button {
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--accent-color);
+    color: var(--on-accent);
+    box-shadow: none;
+}
+
+.login-button:hover:not(:disabled),
+.login-button:active:not(:disabled) {
+    background: var(--accent-hover);
+    transform: none;
+    box-shadow: none;
+}
+
+.login-error {
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+}
+
+/* --- Narrow screens. The rules above come after the responsive blocks, so
+   the tablet rail and the phone drawer restate their layout here. --- */
+
+/* Tablet: a 60 wide rail of glyphs. The rail has no trailing column, so an
+   enabled mode is a tint instead of a checkmark. */
+@media (max-width: 768px) {
+    .sidebar {
+        padding: 14px 8px;
+    }
+
+    .sidebar-header {
+        justify-content: center;
+    }
+
+    .sidebar-logo,
+    .button-icon {
+        margin-right: 0;
+    }
+
+    .menu li {
+        margin: 0 0 2px;
+    }
+
+    .menu li button {
+        justify-content: center;
+        min-height: 36px;
+        padding: 4px 0;
+    }
+
+    .apple-button.toggled {
+        background: var(--glass-bg-active);
+    }
+
+    .apple-button.toggled::after {
+        display: none;
+    }
+}
+
+/* Phone: the 200 wide drawer has full rows again, 44 high for touch, and no
+   shortcut column (no keyboard). The status label keeps the phone's size. */
+@media (max-width: 480px) {
+    /* Closed, the drawer is off screen with no width, so no padding either. */
+    .sidebar:not(.active) {
+        padding: 0;
+    }
+
+    .sidebar.active {
+        padding: 14px;
+    }
+
+    /* The menu button (16 to 60 from the corner) stays over the drawer, so
+       the header starts after it, on the same line, as the wordmark alone:
+       the logo would not leave it room in 200. */
+    .sidebar.active .sidebar-header {
+        justify-content: flex-start;
+        padding: 14px 0 16px 54px;
+    }
+
+    .sidebar.active .sidebar-logo {
+        display: none;
+    }
+
+    .sidebar.active .button-icon {
+        margin-right: 10px;
+    }
+
+    .sidebar.active .menu li {
+        margin: 2px -6px;
+    }
+
+    .sidebar.active .menu li button {
+        justify-content: flex-start;
+        min-height: 44px;
+        padding: 4px 6px;
+    }
+
+    .sidebar.active .apple-button.toggled {
+        background: transparent;
+    }
+
+    .sidebar.active .apple-button.toggled::after {
+        display: block;
+    }
+
+    .sidebar.active .menu li button .menu-shortcut {
+        display: none;
+    }
+
+    .status-indicator,
+    .status-indicator.collapsed,
+    .status-indicator.connected {
+        height: 32px;
+        padding: 0 12px;
+        gap: 8px;
+    }
+
+    .status-dot,
+    .status-indicator.paused .status-dot,
+    .status-indicator.rate-limited .status-dot,
+    .status-indicator.reconnecting .status-dot {
+        width: 10px;
+        height: 10px;
+    }
+
+    .status-label,
+    .status-indicator.connected .status-label,
+    .status-indicator.paused .status-label,
+    .status-indicator.rate-limited .status-label,
+    .status-indicator.reconnecting .status-label,
+    .status-indicator.disconnected .status-label {
+        font-size: 13px;
+    }
+}
+
+/* Without backdrop-filter a material would show the page straight through,
+   so the surfaces fall back to their opaque colour (light or dark). */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .sidebar,
+    .status-indicator,
+    .status-indicator.collapsed,
+    .status-indicator.connected,
+    .reconnect-banner,
+    #message,
+    .toast,
+    .onboarding-hint,
+    .fullscreen-hint,
+    .menu li .button-tooltip,
+    .connection-error,
+    .help-content,
+    .login-content {
+        background: var(--bg-elevated);
+    }
+}
+
+/* ============================================
    Presentation Mode Chrome (?present=)
    Nothing on screen at rest; one control bar fades in on pointer movement.
    Values follow the BeyondSimulations Family UI: the glass bar is Periphery's
@@ -2118,38 +2926,33 @@ canvas.hidden {
    ============================================ */
 
 :root {
-    --present-font: -apple-system, BlinkMacSystemFont, system-ui, 'Helvetica Neue', sans-serif;
-    --present-mono: ui-monospace, 'SF Mono', Menlo, monospace;
-    --present-ink: #1c1c1e;
-    --present-on-ink: #ffffff;
-    --present-text: #1d1d1f;
+    --present-font: var(--font-sans);
+    --present-mono: var(--font-mono);
+    --present-ink: var(--accent-color);
+    --present-on-ink: var(--on-accent);
+    --present-text: var(--text-primary);
     /* Family glass is 0.42 over a light wallpaper. Over arbitrary slides on
        a projector the bar needs Increase Contrast's near-opaque fill. */
     --present-glass: rgba(255, 255, 255, 0.72);
     --present-glass-highlight: rgba(255, 255, 255, 0.9);
-    --present-material: rgba(246, 246, 248, 0.82);
+    --present-material: var(--material-bg);
     --present-hairline: rgba(0, 0, 0, 0.08);
     --present-separator: rgba(0, 0, 0, 0.12);
     --present-keycap-ring: rgba(0, 0, 0, 0.25);
-    --present-waiting: rgba(0, 0, 0, 0.45);
-    --present-done: #28a745;
-    --present-needs-you: #ff9500;
+    --present-waiting: var(--color-waiting);
+    --present-done: var(--color-success);
+    --present-needs-you: var(--color-needs-you);
     --present-fade: 0.25s;
 }
 
-[data-theme="dark"] {
-    --present-ink: #f5f5f7;
-    --present-on-ink: #1c1c1e;
-    --present-text: #f5f5f7;
-    --present-glass: rgba(30, 30, 32, 0.55);
-    --present-glass-highlight: rgba(255, 255, 255, 0.2);
-    --present-material: rgba(34, 34, 38, 0.82);
-    --present-hairline: rgba(255, 255, 255, 0.1);
-    --present-separator: rgba(255, 255, 255, 0.16);
-    --present-keycap-ring: rgba(255, 255, 255, 0.35);
-    --present-waiting: rgba(255, 255, 255, 0.55);
-    --present-done: #30d158;
-    --present-needs-you: #ff9f0a;
+@media (prefers-color-scheme: dark) {
+    :root {
+        --present-glass: rgba(30, 30, 32, 0.55);
+        --present-glass-highlight: rgba(255, 255, 255, 0.2);
+        --present-hairline: rgba(255, 255, 255, 0.1);
+        --present-separator: rgba(255, 255, 255, 0.16);
+        --present-keycap-ring: rgba(255, 255, 255, 0.35);
+    }
 }
 
 .present-hot-zone,
@@ -2166,6 +2969,13 @@ canvas.hidden {
 .presenting .present-status-pill,
 .presenting .present-failure {
     display: flex;
+}
+
+/* Wherever the slide does not cover the page (while it loads, or a slide
+   that cannot be framed), ink-only mode shows the page. It stays paper white
+   in dark mode too, so black ink stays visible. */
+body.presenting {
+    background: #ffffff;
 }
 
 /* At rest the projector shows only the slides and the ink. */

@@ -573,7 +573,7 @@ document.getElementById('funnelButton').addEventListener('click', async function
             // Update status indicator to show paused state
             updateConnectionStatus(ConnectionState.PAUSED);
             // Show persistent status message
-            showStatusMessage('Local stream paused - Funnel sharing active');
+            showStatusMessage('Local stream paused while Funnel sharing is on');
             showMessage('Public sharing enabled! Share the QR code or URL', MessageDuration.IMPORTANT);
         } else {
             // Hide QR code
@@ -600,7 +600,7 @@ document.getElementById('funnelButton').addEventListener('click', async function
             // Recreate and reinitialize stream worker
             streamWorker = new Worker('worker_stream_processing.js');
             initStreamWorker();
-            showMessage('Public sharing disabled - Resuming local stream', MessageDuration.NORMAL);
+            showMessage('Public sharing is off. Resuming the local stream', MessageDuration.NORMAL);
         }
     } catch (error) {
         console.error('Funnel toggle error:', error);

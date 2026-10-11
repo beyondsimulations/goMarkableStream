@@ -62,7 +62,7 @@ async function initiateStream() {
 				type: 'error',
 				severity: 'warning',
 				code: 'RATE_LIMITED',
-				message: 'Rate limited - too many clients',
+				message: 'Rate limited: too many clients',
 				retryable: true
 			});
 			return;
