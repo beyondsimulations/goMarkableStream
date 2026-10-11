@@ -277,6 +277,38 @@ func TestWalkChunksNeedsRoomForHeader(t *testing.T) {
 	}
 }
 
+// Paper Pro Move: the buffer is searched by its stored size, row padding
+// included (960 x 1696 x 4). The layout is synthetic, as no memory map from a
+// Move is available. The size windows of the two devices do not overlap, so
+// each build only matches its own device's buffer.
+func TestFindFramebufferMove(t *testing.T) {
+	regions := mustParse(t, `ffff20000000-ffff201ad000 rw-s 00000000 00:06 275                        /dev/dri/card0
+ffff201ad000-ffff22000000 rw-p 00000000 00:00 0
+`)
+	const base int64 = 0xffff201ad000
+	// The stored frame plus the 16-byte chunk header, rounded up to a page.
+	const chunkMove = (moveStorageSizeBytes/pageSize + 1) * pageSize
+
+	mem := fakeMem{}
+	mem.putChunks(base, chunkSmall, chunkMove)
+	got := findFramebufferCandidates(mem, regions, moveStorageSizeBytes)
+	if len(got) != 1 {
+		t.Fatalf("got %d candidates, want 1: %+v", len(got), got)
+	}
+	if got[0].addr != base+chunkSmall || got[0].chunkSize != chunkMove {
+		t.Errorf("got addr=%x size=%d, want addr=%x size=%d", got[0].addr, got[0].chunkSize, base+chunkSmall, chunkMove)
+	}
+	if c := findFramebufferCandidates(mem, regions, rmppFrameSize); len(c) != 0 {
+		t.Errorf("Paper Pro search matched the Move buffer: %+v", c)
+	}
+
+	ppMem := fakeMem{}
+	ppMem.putChunks(base, chunkSmall, chunkScreen)
+	if c := findFramebufferCandidates(ppMem, regions, moveStorageSizeBytes); len(c) != 0 {
+		t.Errorf("Move search matched the Paper Pro buffer: %+v", c)
+	}
+}
+
 func TestWalkChunksStopsSafely(t *testing.T) {
 	region := memRegion{start: 0x1000000, end: 0x1000000 + 2*chunkScreen, perms: "rw-p"}
 

@@ -34,7 +34,7 @@ type configuration struct {
 	DevMode        bool    `envconfig:"DEV_MODE" default:"false"`
 	DeltaThreshold float64 `envconfig:"DELTA_THRESHOLD" default:"0.30" description:"Change ratio threshold (0.0-1.0) above which full frame is sent"`
 	Debug          bool    `envconfig:"DEBUG" default:"false" description:"Enable debug logging"`
-	FBCandidate    int     `envconfig:"FB_CANDIDATE" default:"-1" description:"Paper Pro only: force the n-th framebuffer candidate from the startup log (-1: automatic)"`
+	FBCandidate    int     `envconfig:"FB_CANDIDATE" default:"-1" description:"Paper Pro and Paper Pro Move only: force the n-th framebuffer candidate from the startup log (-1: automatic)"`
 
 	// TLS certificate configuration
 	TLSCertFile     string `envconfig:"TLS_CERT_FILE" default:"" description:"Path to custom TLS certificate file"`
@@ -151,6 +151,12 @@ func main() {
 
 	dbg.Enabled = c.Debug
 	remarkable.FramebufferCandidate = c.FBCandidate
+
+	deviceModel, deviceName, err := remarkable.DetectDevice()
+	if err != nil {
+		log.Fatalf("Device detection failed: %v", err)
+	}
+	log.Printf("Device detected: %s (%s)", deviceModel, deviceName)
 
 	// Initialize JWT manager if enabled
 	if c.JWTEnabled {
