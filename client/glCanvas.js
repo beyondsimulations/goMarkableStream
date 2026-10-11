@@ -157,6 +157,7 @@ function setPaperTransparent(enabled) {
 	if (gl) {
 		drawScene(gl, programInfo, positionBuffer, textureCoordBuffer, texture);
 	}
+	document.dispatchEvent(new CustomEvent('papermodechange'));
 }
 
 function makeRotationZMatrix(angleInDegrees) {

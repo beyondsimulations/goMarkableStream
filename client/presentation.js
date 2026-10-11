@@ -1,0 +1,140 @@
+// Presentation mode chrome (?present=...).
+//
+// At rest the projector shows only the slides and the ink. Moving the pointer
+// fades in one small control bar, which fades out again once the pointer rests
+// (Periphery's hover toolbar in the BeyondSimulations Family UI). A key-cap
+// hint is shown the first time only, and the connection state is a small grey
+// label while it resolves itself; only a connection that needs the presenter
+// becomes an orange card with one fix ("Try Again").
+
+const PRESENT_TRAY_IDLE_MS = 2500;
+const PRESENT_HINT_DELAY_MS = 800;
+const PRESENT_HINT_MS = 6000;
+const PRESENT_HINT_KEY = 'goMarkableStream_presentHintSeen';
+
+// Label for each ConnectionState; the dot stays grey for all of them, so the
+// failure card is the only orange element on screen.
+const PRESENT_STATUS_TEXT = {
+	connecting: 'Connecting',
+	connected: 'Connected',
+	paused: 'Paused',
+	'rate-limited': 'Rate limited',
+	reconnecting: 'Reconnecting',
+	disconnected: 'Not connected'
+};
+
+let presentTrayTimer = null;
+let presentHintTimer = null;
+let presentRetryHandler = null;
+
+function isPresenting() {
+	return document.body.classList.contains('presenting');
+}
+
+function initPresentationChrome() {
+	document.body.classList.add('presenting');
+
+	const tray = document.getElementById('presentTray');
+	document.addEventListener('mousemove', showPresentTray);
+	document.addEventListener('touchstart', showPresentTray, { passive: true });
+	tray.addEventListener('mouseleave', schedulePresentTrayHide);
+	tray.addEventListener('focusin', showPresentTray);
+	tray.addEventListener('focusout', schedulePresentTrayHide);
+
+	document.getElementById('presentBoard').addEventListener('click', () => {
+		setPaperTransparent(!paperTransparent);
+	});
+	document.getElementById('presentLaser').addEventListener('click', () => {
+		document.getElementById('laserToggle').click();
+	});
+	document.getElementById('presentFullscreen').addEventListener('click', toggleFullscreen);
+	document.getElementById('presentRetry').addEventListener('click', () => {
+		const retry = presentRetryHandler;
+		hidePresentationFailure();
+		if (retry) {
+			retry();
+		}
+	});
+
+	// Keep the bar in step when the keyboard or the sidebar changes a mode.
+	document.addEventListener('papermodechange', refreshPresentTray);
+	document.addEventListener('fullscreenchange', refreshPresentTray);
+	document.getElementById('laserToggle').addEventListener('click', refreshPresentTray);
+
+	refreshPresentTray();
+	showPresentKeyHint();
+}
+
+function showPresentTray() {
+	document.getElementById('presentTray').classList.add('visible');
+	document.body.classList.add('present-controls-visible');
+	hidePresentKeyHint();
+	schedulePresentTrayHide();
+}
+
+function schedulePresentTrayHide() {
+	clearTimeout(presentTrayTimer);
+	presentTrayTimer = setTimeout(() => {
+		const tray = document.getElementById('presentTray');
+		// Stay while the pointer is on the bar or the keyboard is in it. A mouse
+		// click focuses a button without :focus-visible, so it does not hold the
+		// bar on the projector.
+		if (tray.matches(':hover') || tray.querySelector(':focus-visible')) {
+			return;
+		}
+		tray.classList.remove('visible');
+		document.body.classList.remove('present-controls-visible');
+	}, PRESENT_TRAY_IDLE_MS);
+}
+
+function refreshPresentTray() {
+	const fullscreen = Boolean(document.fullscreenElement);
+	document.getElementById('presentBoard').setAttribute('aria-pressed', String(!paperTransparent));
+	document.getElementById('presentLaser').setAttribute('aria-pressed', String(laserEnabled));
+	const fullscreenButton = document.getElementById('presentFullscreen');
+	fullscreenButton.setAttribute('aria-pressed', String(fullscreen));
+	fullscreenButton.querySelector('span').textContent = fullscreen ? 'Leave full screen' : 'Full screen';
+}
+
+// Shown on the first presentation only, like Periphery's first-zoom hint.
+function showPresentKeyHint() {
+	if (localStorage.getItem(PRESENT_HINT_KEY)) {
+		return;
+	}
+	localStorage.setItem(PRESENT_HINT_KEY, 'true');
+	const hint = document.getElementById('presentKeyHint');
+	presentHintTimer = setTimeout(() => {
+		hint.classList.add('visible');
+		presentHintTimer = setTimeout(hidePresentKeyHint, PRESENT_HINT_MS);
+	}, PRESENT_HINT_DELAY_MS);
+}
+
+function hidePresentKeyHint() {
+	clearTimeout(presentHintTimer);
+	document.getElementById('presentKeyHint').classList.remove('visible');
+}
+
+// Called by updateConnectionStatus for every state change.
+function presentationSetStatus(state) {
+	const text = PRESENT_STATUS_TEXT[state] || '';
+	const trayStatus = document.getElementById('presentTrayStatus');
+	trayStatus.querySelector('.present-status-text').textContent = text;
+	trayStatus.classList.toggle('done', state === 'connected');
+
+	// The resting label only appears while the connection is not live. It
+	// resolves itself, so it is grey; a failure gets the card instead.
+	const pill = document.getElementById('presentStatusPill');
+	pill.querySelector('.present-status-text').textContent = text;
+	pill.classList.toggle('visible', state !== 'connected' && state !== 'disconnected');
+}
+
+// The reconnect attempts ran out: one orange card with one fix.
+function showPresentationFailure(onRetry) {
+	presentRetryHandler = onRetry;
+	document.getElementById('presentFailure').classList.add('visible');
+}
+
+function hidePresentationFailure() {
+	presentRetryHandler = null;
+	document.getElementById('presentFailure').classList.remove('visible');
+}

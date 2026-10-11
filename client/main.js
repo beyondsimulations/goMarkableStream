@@ -71,10 +71,13 @@ window.onload = async function() {
 		// Over a presentation only the ink should show, not the white page.
 		// Add &paper=white to the URL to start with the opaque page instead.
 		setPaperTransparent(getQueryParam('paper') !== 'white');
+		initPresentationChrome();
 	}
 
-	// Show onboarding hint for first-time users
-	showOnboardingHint();
+	// Show onboarding hint for first-time users (presentation mode has its own)
+	if (!presentURL) {
+		showOnboardingHint();
+	}
 
 	// Check Funnel availability and status
 	try {

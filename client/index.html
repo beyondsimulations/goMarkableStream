@@ -147,6 +147,42 @@ Currently: <span id="layerOrderStatus">Drawing on Top</span></div>
 				</svg>
 			</button>
 			<iframe id="content" allow="camera *;" allowfullscreen="true" frameborder="0" width="100%" height="100%" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+			<!-- Presentation mode (?present=): nothing on screen at rest, controls fade in on pointer movement -->
+			<div id="presentHotZone" class="present-hot-zone" aria-hidden="true"></div>
+			<div id="presentTray" class="present-tray" role="toolbar" aria-label="Presentation controls">
+				<span id="presentTrayStatus" class="present-tray-status"><span class="present-dot"></span><span class="present-status-text">Connecting</span></span>
+				<span class="present-sep"></span>
+				<button type="button" id="presentBoard" class="present-item" aria-pressed="false">
+					<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"/></svg>
+					<span>White board</span>
+				</button>
+				<span class="present-sep"></span>
+				<button type="button" id="presentLaser" class="present-item" aria-pressed="true">
+					<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/></svg>
+					<span>Laser</span>
+				</button>
+				<span class="present-sep"></span>
+				<button type="button" id="presentFullscreen" class="present-item" aria-pressed="false">
+					<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>
+					<span>Full screen</span>
+				</button>
+			</div>
+			<div id="presentKeyHint" class="present-key-hint" aria-hidden="true">
+				<span class="present-key"><span class="present-keycap">B</span>White board</span>
+				<span class="present-hint-sep"></span>
+				<span class="present-key"><span class="present-keycap">L</span>Laser</span>
+				<span class="present-hint-sep"></span>
+				<span class="present-key"><span class="present-keycap">F</span>Full screen</span>
+			</div>
+			<div id="presentStatusPill" class="present-status-pill" role="status" aria-live="polite"><span class="present-dot"></span><span class="present-status-text"></span></div>
+			<div id="presentFailure" class="present-failure" role="alert">
+				<svg class="present-failure-glyph" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 2.5 16.5h15z"/><path d="M10 8.5v3.5"/><circle cx="10" cy="14.25" r=".6" fill="currentColor"/></svg>
+				<div class="present-failure-body">
+					<strong>Tablet not reachable</strong>
+					<span>Check that the tablet is awake and connected, then try again.</span>
+					<button type="button" id="presentRetry" class="present-primary">Try Again</button>
+				</div>
+			</div>
 		</div>
 
 		<!-- Help Overlay -->
@@ -277,5 +313,6 @@ Currently: <span id="layerOrderStatus">Drawing on Top</span></div>
 		<script src="canvasHandling.js"></script>
 		<script src="uiInteractions.js"></script>
 		<script src="workersHandling.js"></script>
+		<script src="presentation.js"></script>
 	</body>
 </html>
