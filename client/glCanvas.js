@@ -5,6 +5,9 @@ let laserY = -10;
 const MAX_TRAIL_POINTS = 8;
 let trailPositions = [];  // Array of {x, y, timestamp}
 let trailEnabled = true;  // Toggle for trail feature
+// When true, the white of the tablet's page is rendered transparent so that
+// only the ink shows over the embedded presentation (?present=...).
+let paperTransparent = false;
 const gl = canvas.getContext('webgl', {
     antialias: true,
     preserveDrawingBuffer: true,  // Important for proper rendering
@@ -70,6 +73,7 @@ const int MAX_TRAIL_POINTS = 8;
 uniform float uTrailX[MAX_TRAIL_POINTS];
 uniform float uTrailY[MAX_TRAIL_POINTS];
 uniform int uTrailCount;
+uniform float uPaperTransparent;
 
 const float LASER_RADIUS = 6.0;
 const float LASER_EDGE_SOFTNESS = 2.0;
@@ -78,6 +82,15 @@ const vec3 LASER_COLOR = vec3(1.0, 0.0, 0.0);
 void main(void) {
     vec4 texColor = texture2D(uSampler, vTextureCoord)${texSwizzle};
     vec4 finalColor = texColor;
+
+    if (uPaperTransparent > 0.5) {
+        // "White to alpha": white paper becomes fully transparent, black ink
+        // stays opaque, coloured and anti-aliased pixels keep their hue. The
+        // result is premultiplied (rgb already scaled by alpha), and looks
+        // identical to the original pixel when shown over a white background.
+        float whiteness = min(texColor.r, min(texColor.g, texColor.b));
+        finalColor = vec4(texColor.rgb - vec3(whiteness), 1.0 - whiteness);
+    }
 
     // Render trail points (oldest to newest, back to front)
     for (int i = 0; i < MAX_TRAIL_POINTS; i++) {
@@ -117,13 +130,26 @@ void main(void) {
 
         if (distance < 8.0) {
             float fade = 1.0 - smoothstep(6.0, 8.0, distance);
-            finalColor = vec4(LASER_COLOR, fade);
+            if (uPaperTransparent > 0.5) {
+                finalColor = mix(finalColor, vec4(LASER_COLOR, 1.0), fade);
+            } else {
+                finalColor = vec4(LASER_COLOR, fade);
+            }
         }
     }
 
     gl_FragColor = finalColor;
 }
 `;
+
+// Switch between ink-only (transparent paper) and the full white page.
+function setPaperTransparent(enabled) {
+	paperTransparent = enabled;
+	// Without WebGL this script stopped before the program was created.
+	if (gl) {
+		drawScene(gl, programInfo, positionBuffer, textureCoordBuffer, texture);
+	}
+}
 
 function makeRotationZMatrix(angleInDegrees) {
 	var angleInRadians = angleInDegrees * Math.PI / 180;
@@ -190,6 +216,7 @@ const programInfo = {
         uTrailX: gl.getUniformLocation(shaderProgram, 'uTrailX'),
         uTrailY: gl.getUniformLocation(shaderProgram, 'uTrailY'),
         uTrailCount: gl.getUniformLocation(shaderProgram, 'uTrailCount'),
+        uPaperTransparent: gl.getUniformLocation(shaderProgram, 'uPaperTransparent'),
 	},
 };
 
@@ -270,12 +297,19 @@ function drawScene(gl, programInfo, positionBuffer, textureCoordBuffer, texture)
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 	}
 	
-	// Set background color
-	gl.clearColor(0.98, 0.98, 0.98, 0.25);
-	
-	// Enable alpha blending for transparency
-	gl.enable(gl.BLEND);
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+	if (paperTransparent) {
+		// The shader outputs premultiplied colour for the whole canvas, so
+		// write it as-is on a fully transparent background.
+		gl.clearColor(0, 0, 0, 0);
+		gl.disable(gl.BLEND);
+	} else {
+		// Set background color
+		gl.clearColor(0.98, 0.98, 0.98, 0.25);
+
+		// Enable alpha blending for transparency
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+	}
 	
 	// Setup depth buffer
 	gl.clearDepth(1.0);
@@ -309,6 +343,7 @@ function drawScene(gl, programInfo, positionBuffer, textureCoordBuffer, texture)
 	// Set the laser coordinates
     gl.uniform1f(programInfo.uniformLocations.uLaserX, laserX);
     gl.uniform1f(programInfo.uniformLocations.uLaserY, laserY);
+    gl.uniform1f(programInfo.uniformLocations.uPaperTransparent, paperTransparent ? 1.0 : 0.0);
 
 	// Set trail positions
 	const trailX = new Float32Array(MAX_TRAIL_POINTS);
