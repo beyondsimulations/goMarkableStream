@@ -64,7 +64,7 @@ For older firmware versions:
 ### Interaction
 - **Laser Pointer**: Red laser pointer that follows pen hover position (toggle with `L` key).
 - **Gesture Support**: Swipe gestures for slide navigation, integrated with Reveal.js presentations.
-- **Keyboard Shortcuts**: `R` for rotation, `L` for laser pointer, `?` for help overlay.
+- **Keyboard Shortcuts**: `R` for rotation, `L` for laser pointer, `B` for the paper background in presentation mode, `?` for help overlay.
 - **Layer Control**: Toggle drawing layer above or below embedded content.
 
 ### Presentation Mode
@@ -275,6 +275,7 @@ Add query parameters to the URL (`?parameter=value&otherparameter=value`):
 - `portrait`: (true/false) Enable or disable portrait mode.
 - `rate`: (integer, 100-...) Set the frame rate.
 - `flip`: (true/false) Enable or disable flipping 180 degrees.
+- `paper`: (white) With `present`, start with the opaque white page (embedded content hidden) instead of ink only.
 
 ### API Endpoints
 - `/`: Main web interface
@@ -292,6 +293,7 @@ This feature is ideal for enhancing presentations or educational content by allo
 - To use this feature, append `?present=https://url-of-the-embedded-file` to your streaming URL.
 - This action will embed your chosen presentation or video in the stream's background.
 - You can then annotate or draw on the reMarkable tablet, with your input appearing over the embedded content in the stream.
+- Only the ink is shown: the white of the tablet's page is rendered transparent. Press `B` to switch to the opaque white page and back, for example to write on a blank sheet. The white page also hides the embedded content, so the whole window becomes a white board.
 
 ### Usage Example
 

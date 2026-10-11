@@ -239,6 +239,15 @@ document.addEventListener('keydown', function(e) {
             // Laser toggle
             document.getElementById('laserToggle').click();
             break;
+        case 'b':
+            // Paper background toggle (ink only <-> white page), presentation mode
+            // only, and not on browser shortcuts such as Ctrl+B or key repeat
+            if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+                break;
+            }
+            setPaperTransparent(!paperTransparent);
+            showMessage(paperTransparent ? 'Ink only (transparent paper)' : 'White page', MessageDuration.QUICK);
+            break;
         case 't':
             // Trail toggle
             const trailBtn = document.getElementById('trailToggle');
