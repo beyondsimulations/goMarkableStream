@@ -68,6 +68,9 @@ window.onload = async function() {
 	if (presentURL) {
 		document.getElementById('content').src = presentURL;
 		document.getElementById('layersMenuItem').style.display = '';  // Show layers menu
+		// Over a presentation only the ink should show, not the white page.
+		// Add &paper=white to the URL to start with the opaque page instead.
+		setPaperTransparent(getQueryParam('paper') !== 'white');
 	}
 
 	// Show onboarding hint for first-time users
