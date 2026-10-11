@@ -18,6 +18,7 @@
    ============================================ */
 
 :root {
+    color-scheme: light dark;
     /* Surfaces */
     --bg-base: #f2f2f4;
     --bg-surface: #f6f6f8;
@@ -1611,23 +1612,20 @@ canvas.hidden {
    ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
-    /* Transitions keep only colour and opacity, so a change of position or
+    /* Nothing slides, scales or spins: animations jump to their end and
+       transitions keep only colour and opacity, so a change of position or
        size lands at once while fades still fade. */
     *,
     *::before,
     *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
         transition-property: opacity, visibility, color, background-color, border-color, box-shadow !important;
     }
 
-    /* Animations that move stop; the message fades keep running. */
-    .menu li,
-    .apple-button.loading::before,
-    .status-indicator.reconnecting .status-dot,
-    .reconnect-spinner,
-    .screenshot-btn.loading svg,
-    .onboarding-hint.visible,
-    .loading-spinner {
-        animation: none !important;
+    /* The message only fades (familyFadeIn), so it keeps its animation. */
+    #message.visible {
+        animation-duration: 0.25s !important;
     }
 }
 
@@ -1951,52 +1949,13 @@ canvas.hidden {
    Fallback for browsers without backdrop-filter
    ============================================ */
 
-@supports not (backdrop-filter: blur(10px)) {
-    .sidebar {
-        background: rgba(252, 251, 248, 0.98);
-    }
-
-    .status-indicator {
-        background: rgba(252, 251, 248, 0.98);
-    }
-
-    .help-content {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    .connection-error {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    #message {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    .toast {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    .reconnect-banner {
-        background: var(--color-warning);
-    }
-
-    .menu li .button-tooltip {
-        background: rgba(255, 255, 255, 0.98);
-    }
-
-    .help-overlay {
-        background-color: rgba(33, 30, 28, 0.6);
-    }
-}
-
 /* ============================================
    Design Tokens: Family UI (dark)
-   The page follows the system appearance. data-theme="light" or "dark"
-   on <html> overrides it.
+   The page follows the system appearance.
    ============================================ */
 
 @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
+    :root {
         --bg-base: #1c1c1e;
         --bg-surface: #2c2c2e;
         --bg-elevated: #2a2a2e;
@@ -2037,76 +1996,7 @@ canvas.hidden {
         --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
         --shadow-lg: 0 12px 34px rgba(0, 0, 0, 0.45);
         --shadow-xl: 0 18px 50px rgba(0, 0, 0, 0.55);
-
-        --present-ink: #f5f5f7;
-        --present-on-ink: #1c1c1e;
-        --present-text: #f5f5f7;
-        --present-glass: rgba(30, 30, 32, 0.55);
-        --present-glass-highlight: rgba(255, 255, 255, 0.2);
-        --present-material: rgba(34, 34, 38, 0.82);
-        --present-hairline: rgba(255, 255, 255, 0.1);
-        --present-separator: rgba(255, 255, 255, 0.16);
-        --present-keycap-ring: rgba(255, 255, 255, 0.35);
-        --present-waiting: rgba(255, 255, 255, 0.55);
-        --present-done: #30d158;
-        --present-needs-you: #ff9f0a;
     }
-}
-
-:root[data-theme="dark"] {
-    --bg-base: #1c1c1e;
-    --bg-surface: #2c2c2e;
-    --bg-elevated: #2a2a2e;
-
-    --text-primary: #f5f5f7;
-    --text-secondary: rgba(255, 255, 255, 0.55);
-    --text-tertiary: rgba(255, 255, 255, 0.55);
-    --text-muted: rgba(255, 255, 255, 0.55);
-
-    --accent-color: #f5f5f7;
-    --accent-hover: #ffffff;
-    --accent-light: rgba(255, 255, 255, 0.1);
-    --accent-glow: rgba(255, 255, 255, 0.12);
-    --on-accent: #1c1c1e;
-
-    --glass-bg: rgba(40, 40, 44, 0.72);
-    --glass-bg-hover: rgba(255, 255, 255, 0.08);
-    --glass-bg-active: rgba(255, 255, 255, 0.12);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-border-hover: rgba(255, 255, 255, 0.16);
-    --glass-highlight: rgba(255, 255, 255, 0.2);
-    --material-bg: rgba(34, 34, 38, 0.82);
-    --card-bg: rgba(255, 255, 255, 0.06);
-
-    --color-success: #30d158;
-    --color-success-light: rgba(48, 209, 88, 0.12);
-    --color-success-glow: rgba(48, 209, 88, 0.2);
-    --color-warning: #ff9f0a;
-    --color-warning-light: rgba(255, 159, 10, 0.14);
-    --color-warning-glow: rgba(255, 159, 10, 0.2);
-    --color-error: #ff9f0a;
-    --color-error-light: rgba(255, 159, 10, 0.14);
-    --color-error-glow: rgba(255, 159, 10, 0.2);
-    --color-needs-you: #ff9f0a;
-    --color-waiting: rgba(255, 255, 255, 0.55);
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
-    --shadow-lg: 0 12px 34px rgba(0, 0, 0, 0.45);
-    --shadow-xl: 0 18px 50px rgba(0, 0, 0, 0.55);
-
-    --present-ink: #f5f5f7;
-    --present-on-ink: #1c1c1e;
-    --present-text: #f5f5f7;
-    --present-glass: rgba(30, 30, 32, 0.55);
-    --present-glass-highlight: rgba(255, 255, 255, 0.2);
-    --present-material: rgba(34, 34, 38, 0.82);
-    --present-hairline: rgba(255, 255, 255, 0.1);
-    --present-separator: rgba(255, 255, 255, 0.16);
-    --present-keycap-ring: rgba(255, 255, 255, 0.35);
-    --present-waiting: rgba(255, 255, 255, 0.55);
-    --present-done: #30d158;
-    --present-needs-you: #ff9f0a;
 }
 
 /* ============================================
@@ -2243,8 +2133,6 @@ html {
 
 /* Focus rings keep the system accent. */
 .apple-button:focus-visible,
-.my-button:focus-visible,
-.toggle-button:focus-visible,
 .screenshot-btn:focus-visible,
 .hamburger-menu:focus-visible,
 .help-close:focus-visible,
@@ -2434,7 +2322,6 @@ html {
 
 /* --- Buttons: one ink capsule per surface, secondary actions bordered --- */
 
-.my-button,
 .connection-error .error-primary-btn {
     min-height: 28px;
     padding: 0 14px;
@@ -2446,19 +2333,12 @@ html {
     box-shadow: none;
 }
 
-.my-button:hover,
 .connection-error .error-primary-btn:hover {
     background: var(--accent-hover);
     transform: none;
     box-shadow: none;
 }
 
-.my-button.toggled {
-    background: var(--accent-color);
-    color: var(--on-accent);
-}
-
-.toggle-button,
 .connection-error .error-secondary-btn {
     min-height: 28px;
     padding: 0 14px;
@@ -2472,11 +2352,6 @@ html {
 .connection-error .error-secondary-btn:hover {
     background: var(--glass-bg-active);
     transform: none;
-}
-
-.toggle-button.active {
-    background: var(--accent-color);
-    color: var(--on-accent);
 }
 
 /* --- Connection status: a material label, the colour on the dot only.
@@ -2606,6 +2481,15 @@ html {
 
 .hamburger-menu:hover,
 .hamburger-menu:active {
+    background: var(--glass-bg);
+    transform: none;
+}
+
+/* The QR code stays on its card on hover, without lifting. */
+#qrCodeContainer:hover {
+    background: var(--bg-elevated);
+    border-color: var(--glass-border-hover);
+    box-shadow: none;
     transform: none;
 }
 
@@ -2629,10 +2513,6 @@ html {
     animation: familyFadeIn 0.25s ease;
 }
 
-#message.exiting {
-    animation: familyFadeOut 0.25s ease forwards;
-}
-
 #message.info {
     color: var(--text-primary);
 }
@@ -2640,11 +2520,6 @@ html {
 @keyframes familyFadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
-}
-
-@keyframes familyFadeOut {
-    from { opacity: 1; }
-    to { opacity: 0; }
 }
 
 .toast,
@@ -2660,14 +2535,6 @@ html {
     -webkit-backdrop-filter: blur(20px);
     box-shadow: var(--hairline), var(--shadow-lg);
     font-size: 13px;
-}
-
-[data-tooltip]::before {
-    border: 0;
-    background: var(--material-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow: var(--hairline), var(--shadow-md);
 }
 
 .onboarding-hint {
@@ -2901,7 +2768,8 @@ html {
     box-shadow: none;
 }
 
-.login-button:hover {
+.login-button:hover:not(:disabled),
+.login-button:active:not(:disabled) {
     background: var(--accent-hover);
     transform: none;
     box-shadow: none;
@@ -2914,6 +2782,140 @@ html {
     color: var(--color-warning);
 }
 
+/* --- Narrow screens. The rules above come after the responsive blocks, so
+   the tablet rail and the phone drawer restate their layout here. --- */
+
+/* Tablet: a 60 wide rail of glyphs. The rail has no trailing column, so an
+   enabled mode is a tint instead of a checkmark. */
+@media (max-width: 768px) {
+    .sidebar {
+        padding: 14px 8px;
+    }
+
+    .sidebar-header {
+        justify-content: center;
+    }
+
+    .sidebar-logo,
+    .button-icon {
+        margin-right: 0;
+    }
+
+    .menu li {
+        margin: 0 0 2px;
+    }
+
+    .menu li button {
+        justify-content: center;
+        min-height: 36px;
+        padding: 4px 0;
+    }
+
+    .apple-button.toggled {
+        background: var(--glass-bg-active);
+    }
+
+    .apple-button.toggled::after {
+        display: none;
+    }
+}
+
+/* Phone: the 200 wide drawer has full rows again, 44 high for touch, and no
+   shortcut column (no keyboard). The status label keeps the phone's size. */
+@media (max-width: 480px) {
+    /* Closed, the drawer is off screen with no width, so no padding either. */
+    .sidebar:not(.active) {
+        padding: 0;
+    }
+
+    .sidebar.active {
+        padding: 14px;
+    }
+
+    /* The menu button (16 to 60 from the corner) stays over the drawer, so
+       the header starts after it, on the same line, as the wordmark alone:
+       the logo would not leave it room in 200. */
+    .sidebar.active .sidebar-header {
+        justify-content: flex-start;
+        padding: 14px 0 16px 54px;
+    }
+
+    .sidebar.active .sidebar-logo {
+        display: none;
+    }
+
+    .sidebar.active .button-icon {
+        margin-right: 10px;
+    }
+
+    .sidebar.active .menu li {
+        margin: 2px -6px;
+    }
+
+    .sidebar.active .menu li button {
+        justify-content: flex-start;
+        min-height: 44px;
+        padding: 4px 6px;
+    }
+
+    .sidebar.active .apple-button.toggled {
+        background: transparent;
+    }
+
+    .sidebar.active .apple-button.toggled::after {
+        display: block;
+    }
+
+    .sidebar.active .menu li button .menu-shortcut {
+        display: none;
+    }
+
+    .status-indicator,
+    .status-indicator.collapsed,
+    .status-indicator.connected {
+        height: 32px;
+        padding: 0 12px;
+        gap: 8px;
+    }
+
+    .status-dot,
+    .status-indicator.paused .status-dot,
+    .status-indicator.rate-limited .status-dot,
+    .status-indicator.reconnecting .status-dot {
+        width: 10px;
+        height: 10px;
+    }
+
+    .status-label,
+    .status-indicator.connected .status-label,
+    .status-indicator.paused .status-label,
+    .status-indicator.rate-limited .status-label,
+    .status-indicator.reconnecting .status-label,
+    .status-indicator.disconnected .status-label {
+        font-size: 13px;
+    }
+}
+
+/* Without backdrop-filter a material would show the page straight through,
+   so the surfaces fall back to their opaque colour (light or dark). */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .sidebar,
+    .status-indicator,
+    .status-indicator.collapsed,
+    .status-indicator.connected,
+    .reconnect-banner,
+    #message,
+    .toast,
+    .onboarding-hint,
+    .fullscreen-hint,
+    .menu li .button-tooltip,
+    .connection-error,
+    .help-content,
+    .login-content {
+        background: var(--bg-elevated);
+    }
+}
+
 /* ============================================
    Presentation Mode Chrome (?present=)
    Nothing on screen at rest; one control bar fades in on pointer movement.
@@ -2924,23 +2926,33 @@ html {
    ============================================ */
 
 :root {
-    --present-font: -apple-system, BlinkMacSystemFont, system-ui, 'Helvetica Neue', sans-serif;
-    --present-mono: ui-monospace, 'SF Mono', Menlo, monospace;
-    --present-ink: #1c1c1e;
-    --present-on-ink: #ffffff;
-    --present-text: #1d1d1f;
+    --present-font: var(--font-sans);
+    --present-mono: var(--font-mono);
+    --present-ink: var(--accent-color);
+    --present-on-ink: var(--on-accent);
+    --present-text: var(--text-primary);
     /* Family glass is 0.42 over a light wallpaper. Over arbitrary slides on
        a projector the bar needs Increase Contrast's near-opaque fill. */
     --present-glass: rgba(255, 255, 255, 0.72);
     --present-glass-highlight: rgba(255, 255, 255, 0.9);
-    --present-material: rgba(246, 246, 248, 0.82);
+    --present-material: var(--material-bg);
     --present-hairline: rgba(0, 0, 0, 0.08);
     --present-separator: rgba(0, 0, 0, 0.12);
     --present-keycap-ring: rgba(0, 0, 0, 0.25);
-    --present-waiting: rgba(0, 0, 0, 0.45);
-    --present-done: #28a745;
-    --present-needs-you: #ff9500;
+    --present-waiting: var(--color-waiting);
+    --present-done: var(--color-success);
+    --present-needs-you: var(--color-needs-you);
     --present-fade: 0.25s;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --present-glass: rgba(30, 30, 32, 0.55);
+        --present-glass-highlight: rgba(255, 255, 255, 0.2);
+        --present-hairline: rgba(255, 255, 255, 0.1);
+        --present-separator: rgba(255, 255, 255, 0.16);
+        --present-keycap-ring: rgba(255, 255, 255, 0.35);
+    }
 }
 
 .present-hot-zone,
@@ -2957,6 +2969,13 @@ html {
 .presenting .present-status-pill,
 .presenting .present-failure {
     display: flex;
+}
+
+/* Wherever the slide does not cover the page (while it loads, or a slide
+   that cannot be framed), ink-only mode shows the page. It stays paper white
+   in dark mode too, so black ink stays visible. */
+body.presenting {
+    background: #ffffff;
 }
 
 /* At rest the projector shows only the slides and the ink. */
