@@ -17,6 +17,9 @@ import (
 //  2. Walk the malloc chunk headers of the anonymous regions
 //  3. Pick the chunk whose size matches the screen buffer
 //
+// The size searched for is the buffer as it is stored in memory, so it
+// includes the row padding of the Paper Pro Move.
+//
 // See fbscan.go for the details and for why the position of the buffer
 // relative to the /dev/dri/card0 mappings cannot be assumed any more.
 //
@@ -39,10 +42,10 @@ func getFramePointer(pid string) (int64, error) {
 	}
 	defer mem.Close()
 
-	candidates := findFramebufferCandidates(mem, regions, ScreenSizeBytes)
+	candidates := findFramebufferCandidates(mem, regions, FramebufferStorageSizeBytes)
 	if len(candidates) == 0 {
 		return 0, fmt.Errorf("failed to calculate frame pointer: no memory chunk of at least %d bytes found in %d regions of xochitl (pid %s)",
-			ScreenSizeBytes, len(regions), pid)
+			FramebufferStorageSizeBytes, len(regions), pid)
 	}
 
 	for i, c := range candidates {
