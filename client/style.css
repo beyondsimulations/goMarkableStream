@@ -2107,3 +2107,333 @@ canvas.hidden {
         padding: 24px;
     }
 }
+
+/* ============================================
+   Presentation Mode Chrome (?present=)
+   Nothing on screen at rest; one control bar fades in on pointer movement.
+   Values follow the BeyondSimulations Family UI: the glass bar is Periphery's
+   hover toolbar, the key-cap hint its first-zoom hint, the status pill its
+   material label. Colour is signal only: grey resolves itself, orange needs
+   the presenter, never red.
+   ============================================ */
+
+:root {
+    --present-font: -apple-system, BlinkMacSystemFont, system-ui, 'Helvetica Neue', sans-serif;
+    --present-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+    --present-ink: #1c1c1e;
+    --present-on-ink: #ffffff;
+    --present-text: #1d1d1f;
+    /* Family glass is 0.42 over a light wallpaper. Over arbitrary slides on
+       a projector the bar needs Increase Contrast's near-opaque fill. */
+    --present-glass: rgba(255, 255, 255, 0.72);
+    --present-glass-highlight: rgba(255, 255, 255, 0.9);
+    --present-material: rgba(246, 246, 248, 0.82);
+    --present-hairline: rgba(0, 0, 0, 0.08);
+    --present-separator: rgba(0, 0, 0, 0.12);
+    --present-keycap-ring: rgba(0, 0, 0, 0.25);
+    --present-waiting: rgba(0, 0, 0, 0.45);
+    --present-done: #28a745;
+    --present-needs-you: #ff9500;
+    --present-fade: 0.25s;
+}
+
+[data-theme="dark"] {
+    --present-ink: #f5f5f7;
+    --present-on-ink: #1c1c1e;
+    --present-text: #f5f5f7;
+    --present-glass: rgba(30, 30, 32, 0.55);
+    --present-glass-highlight: rgba(255, 255, 255, 0.2);
+    --present-material: rgba(34, 34, 38, 0.82);
+    --present-hairline: rgba(255, 255, 255, 0.1);
+    --present-separator: rgba(255, 255, 255, 0.16);
+    --present-keycap-ring: rgba(255, 255, 255, 0.35);
+    --present-waiting: rgba(255, 255, 255, 0.55);
+    --present-done: #30d158;
+    --present-needs-you: #ff9f0a;
+}
+
+.present-hot-zone,
+.present-tray,
+.present-key-hint,
+.present-status-pill,
+.present-failure {
+    display: none;
+}
+
+.presenting .present-hot-zone,
+.presenting .present-tray,
+.presenting .present-key-hint,
+.presenting .present-status-pill,
+.presenting .present-failure {
+    display: flex;
+}
+
+/* At rest the projector shows only the slides and the ink. */
+.presenting #statusIndicator,
+.presenting #screenshotBtn,
+.presenting #reconnectBanner {
+    display: none !important;
+}
+
+/* The sidebar keeps its hover edge, invisible until it opens. */
+.presenting .sidebar:not(.active) {
+    opacity: 0;
+}
+
+/* When the slides are on top of the ink they catch the pointer, so a thin
+   strip at the bottom edge brings the bar up. It stays below the controls
+   of embedded players. */
+.present-hot-zone {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 560px;
+    max-width: 100%;
+    height: 8px;
+    transform: translateX(-50%);
+    z-index: 59;
+}
+
+.present-tray {
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    z-index: 60;
+    height: 28px;
+    align-items: stretch;
+    border-radius: 999px;
+    background: var(--present-glass);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    box-shadow:
+        inset 0 1px 0 var(--present-glass-highlight),
+        inset 0 0 0 0.5px rgba(255, 255, 255, 0.6),
+        0 0 0 0.5px rgba(0, 0, 0, 0.1),
+        0 6px 20px rgba(0, 0, 0, 0.18);
+    font: 12px/1 var(--present-font);
+    color: var(--present-text);
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--present-fade) ease, visibility 0s linear var(--present-fade);
+}
+
+.present-tray.visible {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity var(--present-fade) ease, visibility 0s;
+}
+
+.present-tray-status,
+.present-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+}
+
+.present-item {
+    position: relative;
+    isolation: isolate;
+    appearance: none;
+    margin: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+/* A selected mode is ink, as everywhere in the family. */
+.present-item[aria-pressed="true"] {
+    color: var(--present-on-ink);
+}
+
+.present-item[aria-pressed="true"]::before {
+    content: '';
+    position: absolute;
+    inset: 3px 2px;
+    border-radius: 999px;
+    background: var(--present-ink);
+    z-index: -1;
+}
+
+.present-item:focus-visible {
+    outline: 2px solid Highlight;
+    outline: 2px solid AccentColor;
+    outline-offset: -2px;
+    border-radius: 999px;
+}
+
+.present-sep {
+    width: 0.5px;
+    margin: 7px 0;
+    background: var(--present-separator);
+}
+
+.present-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--present-waiting);
+}
+
+.present-tray-status.done .present-dot {
+    background: var(--present-done);
+}
+
+.present-key-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+    z-index: 58;
+    height: 34px;
+    padding: 0 16px;
+    align-items: center;
+    gap: 14px;
+    border-radius: 999px;
+    background: var(--present-material);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: inset 0 0 0 0.5px var(--present-hairline), 0 6px 20px rgba(0, 0, 0, 0.2);
+    font: 12px/1 var(--present-font);
+    color: var(--present-text);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--present-fade) ease;
+}
+
+.present-key-hint.visible {
+    opacity: 1;
+}
+
+.present-key {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.present-keycap {
+    font: 600 10px var(--present-mono);
+    padding: 2px 5px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 0.5px var(--present-keycap-ring);
+}
+
+.present-hint-sep {
+    width: 0.5px;
+    height: 16px;
+    background: var(--present-separator);
+}
+
+.present-status-pill {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    z-index: 57;
+    height: 20px;
+    padding: 0 9px;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    background: var(--present-material);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: inset 0 0 0 0.5px var(--present-hairline);
+    font: 11px/1 var(--present-font);
+    color: var(--present-text);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--present-fade) ease;
+}
+
+.present-status-pill.visible {
+    opacity: 1;
+}
+
+/* While the bar is up it carries the status itself. */
+.present-controls-visible .present-status-pill {
+    opacity: 0;
+}
+
+.present-failure {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    z-index: 61;
+    width: 300px;
+    max-width: calc(100% - 40px);
+    box-sizing: border-box;
+    padding: 14px;
+    gap: 10px;
+    align-items: flex-start;
+    border-radius: 16px;
+    background: var(--present-material);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    box-shadow: inset 0 0 0 0.5px var(--present-hairline), 0 12px 34px rgba(0, 0, 0, 0.2);
+    font: 13px/1.35 var(--present-font);
+    color: var(--present-text);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--present-fade) ease, visibility 0s linear var(--present-fade);
+}
+
+.present-failure.visible {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity var(--present-fade) ease, visibility 0s;
+}
+
+.present-failure-glyph {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: var(--present-needs-you);
+}
+
+.present-failure-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.present-failure-body strong {
+    font-weight: 600;
+}
+
+.present-primary {
+    appearance: none;
+    margin: 6px 0 0;
+    height: 28px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--present-ink);
+    color: var(--present-on-ink);
+    font: 500 13px/1 var(--present-font);
+    cursor: pointer;
+}
+
+.present-primary:focus-visible {
+    outline: 2px solid Highlight;
+    outline: 2px solid AccentColor;
+    outline-offset: 2px;
+}
+
+/* Fades stay under Reduce Motion (Family UI RULES 12); nothing here moves. */
+@media (prefers-reduced-motion: reduce) {
+    .present-tray,
+    .present-failure {
+        transition-duration: var(--present-fade), 0s !important;
+    }
+
+    .present-key-hint,
+    .present-status-pill {
+        transition-duration: var(--present-fade) !important;
+    }
+}

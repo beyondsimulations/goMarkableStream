@@ -126,6 +126,10 @@ function updateConnectionStatus(state) {
 			if (statusLabel) statusLabel.textContent = 'Disconnected';
 			break;
 	}
+
+	if (typeof presentationSetStatus === 'function') {
+		presentationSetStatus(state);
+	}
 }
 
 // Enhanced error message builder
@@ -169,6 +173,13 @@ function buildErrorMessage(error) {
 
 // Show connection error with enhanced messaging
 function showConnectionError(error, retryable = true, onRetry = null) {
+	// In presentation mode a retryable failure is a small card, not a dialog
+	// over the slides.
+	if (retryable && onRetry && typeof isPresenting === 'function' && isPresenting()) {
+		showPresentationFailure(onRetry);
+		return;
+	}
+
 	// Remove any existing error dialog
 	const existingError = document.getElementById('connectionError');
 	if (existingError) {
@@ -272,6 +283,9 @@ function hideConnectionError() {
 	const existingError = document.getElementById('connectionError');
 	if (existingError) {
 		existingError.remove();
+	}
+	if (typeof hidePresentationFailure === 'function') {
+		hidePresentationFailure();
 	}
 }
 
