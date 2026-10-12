@@ -257,6 +257,14 @@ document.addEventListener('keydown', function(e) {
             setPaperTransparent(!paperTransparent);
             showMessage(paperTransparent ? 'Ink only (transparent paper)' : 'White page', MessageDuration.QUICK);
             break;
+        case 'd':
+            // Layer order toggle (drawing <-> content on top), presentation
+            // mode only, with the same guards as B
+            if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+                break;
+            }
+            document.getElementById('switchOrderButton').click();
+            break;
         case 't':
             // Trail toggle
             const trailBtn = document.getElementById('trailToggle');
@@ -378,32 +386,35 @@ function updateLayerOrderUI(isContentOnTop) {
         if (layerOrderStatus) layerOrderStatus.textContent = 'Content on Top';
         switchBtn.classList.add('toggled');
         switchBtn.setAttribute('aria-pressed', 'true');
-        switchBtn.setAttribute('aria-label', 'Content layer is on top. Click to switch to drawing on top');
+        switchBtn.setAttribute('aria-label', 'Content layer is on top. Click or press D to switch to drawing on top');
     } else {
         if (layerOrderText) layerOrderText.textContent = 'Drawing on Top';
         if (layerOrderStatus) layerOrderStatus.textContent = 'Drawing on Top';
         switchBtn.classList.remove('toggled');
         switchBtn.setAttribute('aria-pressed', 'false');
-        switchBtn.setAttribute('aria-label', 'Drawing layer is on top. Click to switch to content on top');
+        switchBtn.setAttribute('aria-label', 'Drawing layer is on top. Click or press D to switch to content on top');
     }
+}
+
+// The embedded content is on top only with z-index 4; without an inline
+// z-index the stylesheet puts the drawing on top.
+function isContentOnTop() {
+    return iFrame.style.zIndex === '4';
+}
+
+// Puts the embedded content or the drawing on top, and keeps the menu and the
+// saved preference in step (the button, the D key and the swipes).
+function setContentOnTop(contentOnTop) {
+    iFrame.style.zIndex = contentOnTop ? 4 : 1;
+    savePreference(STORAGE_KEYS.LAYER_ORDER, contentOnTop ? 'content' : 'drawing');
+    updateLayerOrderUI(contentOnTop);
 }
 
 // Mask drawing button functionality
 document.getElementById('switchOrderButton').addEventListener('click', function () {
-    // Swap z-index values
-    const isLayerSwitched = iFrame.style.zIndex != 1;
-
-    if (isLayerSwitched) {
-        iFrame.style.zIndex = 1;
-        savePreference(STORAGE_KEYS.LAYER_ORDER, 'drawing');
-        updateLayerOrderUI(false);
-        showMessage('Drawing layer on top', MessageDuration.QUICK);
-    } else {
-        iFrame.style.zIndex = 4;
-        savePreference(STORAGE_KEYS.LAYER_ORDER, 'content');
-        updateLayerOrderUI(true);
-        showMessage('Content layer on top', MessageDuration.QUICK);
-    }
+    const contentOnTop = !isContentOnTop();
+    setContentOnTop(contentOnTop);
+    showMessage(contentOnTop ? 'Content layer on top' : 'Drawing layer on top', MessageDuration.QUICK);
 });
 
 // Laser toggle button functionality

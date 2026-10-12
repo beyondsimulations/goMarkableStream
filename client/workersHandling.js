@@ -146,8 +146,10 @@ gestureWorker.postMessage({
 	rotation: viewRotation(),
 });
 
-// Tells the embedded reveal.js deck to move: 'right' is the next slide,
-// 'left' the previous one.
+// Tells the embedded reveal.js deck to move: 'next' and 'prev' step through
+// every fragment and slide in order, like the space bar.
+// ('right' and 'left' would jump between horizontal slides, so in a Quarto
+// deck with vertical stacks a whole chapter at a time.)
 function sendSlideCommand(method) {
 	document.getElementById('content').contentWindow.postMessage(JSON.stringify({ method }), '*');
 }
@@ -156,12 +158,12 @@ function sendSlideCommand(method) {
 // next slide, like turning a page on the tablet; the downward diagonals
 // follow their sideways part, the upward ones choose what is on top.
 const SWIPE_ACTIONS = {
-	'swipe-left': () => sendSlideCommand('right'),
-	'swipe-down-left': () => sendSlideCommand('right'),
-	'swipe-right': () => sendSlideCommand('left'),
-	'swipe-down-right': () => sendSlideCommand('left'),
-	'swipe-up-right': () => { iFrame.style.zIndex = 1; }, // drawing on top
-	'swipe-up-left': () => { iFrame.style.zIndex = 4; }, // content on top
+	'swipe-left': () => sendSlideCommand('next'),
+	'swipe-down-left': () => sendSlideCommand('next'),
+	'swipe-right': () => sendSlideCommand('prev'),
+	'swipe-down-right': () => sendSlideCommand('prev'),
+	'swipe-up-right': () => setContentOnTop(false), // drawing on top
+	'swipe-up-left': () => setContentOnTop(true), // content on top
 };
 
 gestureWorker.onmessage = (event) => {

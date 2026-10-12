@@ -42,13 +42,13 @@
 						</button>
 					</li>
 					<li id="layersMenuItem" style="display: none;">
-						<button id="switchOrderButton" class="apple-button" aria-label="Toggle layer order: drawing or content on top" aria-pressed="false">
+						<button id="switchOrderButton" class="apple-button" aria-label="Toggle layer order: drawing or content on top (press D)" aria-pressed="false">
 							<svg class="button-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
 								<path fill="currentColor" d="M12 16L6 10H9V4H15V10H18L12 16M12 18L18 12H15V6H9V12H6L12 18M3 20H21V22H3V20M12 2L21 9H15V15H9V9H3L12 2Z"/>
 							</svg>
 							<span id="layerOrderText">Drawing on Top</span>
-							<span class="menu-shortcut" aria-hidden="true"></span>
-							<div class="button-tooltip">Toggle layer order
+							<span class="menu-shortcut" aria-hidden="true">D</span>
+							<div class="button-tooltip">Toggle layer order <kbd>D</kbd>
 Currently: <span id="layerOrderStatus">Drawing on Top</span></div>
 						</button>
 					</li>
@@ -253,6 +253,10 @@ Currently: <span id="layerOrderStatus">Drawing on Top</span></div>
 						<div class="help-item">
 							<kbd>B</kbd>
 							<span>Presentation mode: toggle paper background (ink only / white board)</span>
+						</div>
+						<div class="help-item">
+							<kbd>D</kbd>
+							<span>Presentation mode: drawing or content on top</span>
 						</div>
 						<div class="help-item">
 							<div class="help-keys"><kbd>H</kbd> or <kbd>S</kbd></div>
