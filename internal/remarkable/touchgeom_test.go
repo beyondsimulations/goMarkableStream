@@ -4,7 +4,10 @@ import "testing"
 
 func TestNewTouchGeometryMove(t *testing.T) {
 	// The Paper Pro Move: x 0..1248, y 0..2208 on a 954x1696 screen.
-	g := newTouchGeometry(0, 1248, 0, 2208, 954, 1696)
+	g, err := newTouchGeometry(0, 1248, 0, 2208, 954, 1696)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if g.XCode != 53 || g.YCode != 54 || g.XMax != 1248 || g.YMax != 2208 {
 		t.Fatalf("geometry = %+v", g)
 	}
@@ -14,10 +17,10 @@ func TestNewTouchGeometryMove(t *testing.T) {
 	}
 }
 
-// A panel whose x axis is the long side of a portrait screen is turned.
-func TestNewTouchGeometrySwapsLandscapePanel(t *testing.T) {
-	g := newTouchGeometry(0, 2208, 0, 1248, 954, 1696)
-	if g.XCode != 54 || g.YCode != 53 || g.XMax != 1248 || g.YMax != 2208 {
-		t.Fatalf("geometry = %+v", g)
+// A panel lying across the screen is refused: its ranges do not tell which
+// way it is turned, and swapping the axes alone would mirror the swipes.
+func TestNewTouchGeometryRefusesPanelAcrossScreen(t *testing.T) {
+	if g, err := newTouchGeometry(0, 2208, 0, 1248, 954, 1696); err == nil {
+		t.Fatalf("got %+v, want an error", g)
 	}
 }

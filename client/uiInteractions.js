@@ -11,6 +11,17 @@ const STORAGE_KEYS = {
     LAYER_ORDER: 'goMarkableStream_layerOrder'
 };
 
+// Applies a change of the view's orientation to everything that follows it:
+// the laser, the swipes and the picture.
+function applyViewOrientation() {
+    eventWorker.postMessage({ type: 'portrait', portrait: portrait });
+    if (swipesFollowView) {
+        gestureWorker.postMessage({ type: 'rotation', rotation: viewRotation() });
+    }
+    resizeVisibleCanvas();
+    redrawScene(portrait, 1);
+}
+
 // Load saved preferences on initialization
 function loadSavedPreferences() {
     // Portrait mode
@@ -22,10 +33,7 @@ function loadSavedPreferences() {
             const rotateBtn = document.getElementById('rotate');
             rotateBtn.classList.toggle('toggled', portrait);
             rotateBtn.setAttribute('aria-pressed', portrait.toString());
-            eventWorker.postMessage({ type: 'portrait', portrait: portrait });
-            gestureWorker.postMessage({ type: 'rotation', rotation: viewRotation() });
-            resizeVisibleCanvas();
-            redrawScene(portrait, 1);
+            applyViewOrientation();
         }
     }
 
@@ -309,10 +317,7 @@ document.getElementById('rotate').addEventListener('click', function () {
     portrait = !portrait;
     this.classList.toggle('toggled');
     this.setAttribute('aria-pressed', portrait.toString());
-    eventWorker.postMessage({ type: 'portrait', portrait: portrait });
-    gestureWorker.postMessage({ type: 'rotation', rotation: viewRotation() });
-    resizeVisibleCanvas();
-    redrawScene(portrait, 1);
+    applyViewOrientation();
 
     // Save preference
     savePreference(STORAGE_KEYS.PORTRAIT_MODE, portrait);

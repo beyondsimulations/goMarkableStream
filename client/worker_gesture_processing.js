@@ -6,6 +6,9 @@ let authToken = null;
 let rotation = 0;
 let running = false;
 let controller = null;
+// Time before the next attempt after the stream ends or fails; it doubles
+// up to 30 seconds and starts again at one once a stream opens.
+let retryDelay = 1000;
 
 // The reMarkable 2 sends direction totals, which checkSwipeDirection names;
 // this gives them the names the Paper Pro sends. Each legacy name stands for
@@ -53,19 +56,26 @@ onmessage = (event) => {
 };
 
 // Keeps the gesture stream open: again at once after a rotation change, and
-// a second later when the stream ends or fails.
+// after a growing pause when the stream ends or fails. A refused sign-in
+// stops it, since the same token would be refused again.
 async function streamGestures() {
 	while (running) {
 		controller = new AbortController();
 		try {
 			await fetchStream(controller.signal);
 		} catch (e) {
+			if (e.status === 401 || e.status === 403) {
+				running = false;
+				postMessage({ type: 'error', message: 'Gesture stream refused (HTTP ' + e.status + ')' });
+				return;
+			}
 			if (!controller.signal.aborted) {
 				console.error('Gesture stream error:', e);
 			}
 		}
 		if (running && !controller.signal.aborted) {
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			await new Promise((resolve) => setTimeout(resolve, retryDelay));
+			retryDelay = Math.min(retryDelay * 2, 30000);
 		}
 	}
 }
@@ -79,8 +89,11 @@ async function fetchStream(signal) {
 	}
 	const response = await fetch('/gestures?rotation=' + rotation, fetchOptions);
 	if (!response.ok) {
-		throw new Error('HTTP ' + response.status);
+		const error = new Error('HTTP ' + response.status);
+		error.status = response.status;
+		throw error;
 	}
+	retryDelay = 1000;
 
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder('utf-8');

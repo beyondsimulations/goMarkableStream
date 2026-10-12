@@ -126,3 +126,40 @@ func TestParseViewRotation(t *testing.T) {
 		}
 	}
 }
+
+// A finger resting on the panel since an earlier gesture sends nothing
+// while it stays still; a swipe with another finger is still ignored, and
+// counts again once the resting finger lifts.
+func TestSwipeReaderIgnoresRestingFinger(t *testing.T) {
+	r := &swipeReader{geometry: moveGeometry}
+	for _, ev := range []events.InputEventFromSource{
+		touchAbs(codeTrackingID, 1), touchAbs(53, 200), touchAbs(54, 2000),
+	} {
+		r.observe(ev)
+	}
+	r.endGesture() // the palm rests: more than 150 ms without events
+
+	swipeLeft := []events.InputEventFromSource{
+		touchAbs(codeSlot, 1), touchAbs(codeTrackingID, 2),
+		touchAbs(53, 1100), touchAbs(54, 1200),
+		touchAbs(53, 100), touchAbs(54, 1210),
+		touchAbs(codeTrackingID, -1),
+	}
+	for _, ev := range swipeLeft {
+		r.observe(ev)
+	}
+	if got := r.name(0); got != "" {
+		t.Fatalf("swipe beside a resting finger: got %q", got)
+	}
+	r.endGesture()
+
+	r.observe(touchAbs(codeSlot, 0))
+	r.observe(touchAbs(codeTrackingID, -1)) // the palm lifts
+	r.endGesture()
+	for _, ev := range swipeLeft {
+		r.observe(ev)
+	}
+	if got := r.name(0); got != "swipe-left" {
+		t.Fatalf("swipe alone: got %q, want swipe-left", got)
+	}
+}

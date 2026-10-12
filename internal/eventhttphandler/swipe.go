@@ -2,6 +2,7 @@ package eventhttphandler
 
 import (
 	"math"
+	"math/bits"
 	"strconv"
 
 	"github.com/owulveryck/goMarkableStream/internal/events"
@@ -17,6 +18,9 @@ type fingerTrack struct {
 	x1, y1     int32
 	hasX, hasY bool
 	touchDowns int
+	// The most fingers that were down at once during the gesture, counting
+	// one that rests on the panel since an earlier gesture.
+	maxContacts int
 }
 
 // observe adds one EV_ABS event; slot is the multi-touch slot it belongs to.
@@ -51,6 +55,43 @@ func (f *fingerTrack) observe(event events.InputEventFromSource, slot int32, g *
 
 func (f *fingerTrack) reset() {
 	*f = fingerTrack{}
+}
+
+// swipeReader reads one gesture at a time from the touch panel's events.
+// The current slot and which slots have a finger down carry over between
+// gestures: the kernel only reports them when they change.
+type swipeReader struct {
+	geometry *remarkable.TouchGeometry
+	slot     int32
+	live     uint32 // bit n: a finger is down in slot n
+	finger   fingerTrack
+}
+
+func (r *swipeReader) observe(event events.InputEventFromSource) {
+	switch event.Code {
+	case codeSlot:
+		r.slot = event.Value
+	case codeTrackingID:
+		if r.slot >= 0 && r.slot < 32 {
+			if event.Value >= 0 {
+				r.live |= 1 << r.slot
+			} else {
+				r.live &^= 1 << r.slot
+			}
+		}
+	}
+	r.finger.observe(event, r.slot, r.geometry)
+	r.finger.maxContacts = max(r.finger.maxContacts, bits.OnesCount32(r.live))
+}
+
+// name is the gesture's swipe for a browser with the given view rotation.
+func (r *swipeReader) name(rotation int) string {
+	return swipeName(&r.finger, r.geometry, rotation)
+}
+
+// endGesture starts the next gesture; fingers still down stay counted.
+func (r *swipeReader) endGesture() {
+	r.finger.reset()
 }
 
 // pixels is the first finger's movement in screen pixels, x rightward and y
@@ -136,7 +177,7 @@ func classifySwipe(dx, dy, shortSide float64) string {
 // swipeName is what one gesture means for a browser with the given view
 // rotation; "" when it is no swipe or more than one finger touched.
 func swipeName(f *fingerTrack, g *remarkable.TouchGeometry, rotation int) string {
-	if f.touchDowns > 1 || !f.hasPrimary {
+	if f.touchDowns > 1 || f.maxContacts > 1 || !f.hasPrimary {
 		return ""
 	}
 	dx, dy := f.pixels(g)

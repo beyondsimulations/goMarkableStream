@@ -232,20 +232,23 @@ func main() {
 	eventPublisher := pubsub.NewPubSub()
 	eventScanner := remarkable.NewEventScanner()
 	eventScanner.StartAndPublish(ctx, eventPublisher)
+	// Paper Pro and Paper Pro Move: swipes are read in screen pixels and
+	// follow the browser's view. Without a geometry (reMarkable 2, or a
+	// panel that cannot be read) the original direction totals are sent.
+	touchGeometry, err := remarkable.LoadTouchGeometry()
+	if err != nil {
+		log.Printf("Touch gestures: %v (keeping the reMarkable 2 swipe detection)", err)
+	}
 	if c.DebugGestures {
 		log.Print(remarkable.DescribeTouchDevice())
-		geometry, err := remarkable.LoadTouchGeometry()
-		if err != nil {
-			log.Printf("Touch gestures: %v", err)
-		}
-		go eventhttphandler.LogGestures(ctx, eventPublisher, geometry)
+		go eventhttphandler.LogGestures(ctx, eventPublisher, touchGeometry)
 	}
 
 	// Channel to signal Tailscale listener restart
 	restartCh := make(chan bool, 1)
 
 	// Pass TailscaleManager and restart channel to setMuxer
-	mux := setMuxer(eventPublisher, listenerResult.TailscaleManager, restartCh, jwtMgr)
+	mux := setMuxer(eventPublisher, touchGeometry, listenerResult.TailscaleManager, restartCh, jwtMgr)
 
 	var handler http.Handler
 	handler = AuthMiddleware(mux, jwtMgr)

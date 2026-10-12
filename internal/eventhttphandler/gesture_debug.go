@@ -46,9 +46,8 @@ func (a axisTrace) String() string {
 // the same way as for the browser, plus where each axis started and ended
 // and which fingers took part, so the gestures can be tuned per device.
 type gestureLog struct {
-	geometry    *remarkable.TouchGeometry // nil on the reMarkable 2
+	reader      *swipeReader // shared across gestures; nil on the reMarkable 2
 	tracker     swipeTracker
-	finger      fingerTrack
 	x, y        axisTrace // codeXAxis (54) and codeYAxis (53)
 	events      int
 	touchDowns  int
@@ -63,9 +62,10 @@ func (g *gestureLog) observe(event events.InputEventFromSource, slot int32, now 
 	}
 	g.events++
 	g.last = now
-	g.tracker.observe(event)
-	if g.geometry != nil {
-		g.finger.observe(event, slot, g.geometry)
+	if g.reader != nil {
+		g.reader.observe(event)
+	} else {
+		g.tracker.observe(event)
 	}
 	switch event.Code {
 	case codeXAxis, codeYAxis:
@@ -92,13 +92,13 @@ func (g *gestureLog) String() string {
 	line := fmt.Sprintf("gesture: %d events in %v, %d touch-down(s), slots [%s] | code %d: %v | code %d: %v",
 		g.events, g.last.Sub(g.start).Round(time.Millisecond), g.touchDowns, strings.Join(slots, " "),
 		codeXAxis, g.x, codeYAxis, g.y)
-	if g.geometry != nil {
+	if g.reader != nil {
 		// What a browser makes of it at each view rotation (the R key turns
 		// the view by 90 degrees).
-		dx, dy := g.finger.pixels(g.geometry)
+		dx, dy := g.reader.finger.pixels(g.reader.geometry)
 		seen := make([]string, 0, 4)
 		for _, rotation := range []int{0, 90, 180, 270} {
-			name := swipeName(&g.finger, g.geometry, rotation)
+			name := g.reader.name(rotation)
 			if name == "" {
 				name = "none"
 			}
@@ -173,11 +173,18 @@ func logGestures(ctx context.Context, eventC <-chan events.InputEventFromSource,
 	// The kernel only sends ABS_MT_SLOT when the slot changes, so the
 	// current slot carries over from one gesture to the next.
 	var slot int32
-	current := &gestureLog{geometry: geometry}
+	var reader *swipeReader
+	if geometry != nil {
+		reader = &swipeReader{geometry: geometry}
+	}
+	current := &gestureLog{reader: reader}
 	flush := func() {
 		if current.events > 0 {
-			logf(current)
-			current = &gestureLog{geometry: geometry}
+			logf(current.String())
+			if reader != nil {
+				reader.endGesture()
+			}
+			current = &gestureLog{reader: reader}
 		}
 	}
 	for {

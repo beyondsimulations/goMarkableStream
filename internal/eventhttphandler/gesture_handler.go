@@ -129,9 +129,7 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tick := time.NewTicker(gestureMaxInterval)
 	defer tick.Stop()
 	tracker := &swipeTracker{}
-	finger := &fingerTrack{}
-	// The kernel only sends ABS_MT_SLOT when the slot changes.
-	var slot int32
+	reader := &swipeReader{geometry: h.geometry}
 
 	enc := json.NewEncoder(w)
 	w.Header().Set("Content-Type", "application/x-ndjson")
@@ -143,7 +141,7 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-tick.C:
 			var message any
 			if h.geometry != nil {
-				if name := swipeName(finger, h.geometry, rotation); name != "" {
+				if name := reader.name(rotation); name != "" {
 					message = swipeMessage{Swipe: name}
 				}
 			} else if tracker.sum() != 0 {
@@ -159,14 +157,12 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			tracker.reset()
-			finger.reset()
+			reader.endGesture()
 		case event := <-eventC:
-			if event.Code == codeSlot {
-				slot = event.Value
-			}
-			tracker.observe(event)
 			if h.geometry != nil {
-				finger.observe(event, slot, h.geometry)
+				reader.observe(event)
+			} else {
+				tracker.observe(event)
 			}
 			tick.Reset(gestureMaxInterval)
 		}

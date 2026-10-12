@@ -26,5 +26,5 @@ func LoadTouchGeometry() (*TouchGeometry, error) {
 	if x.Maximum <= x.Minimum || y.Maximum <= y.Minimum {
 		return nil, fmt.Errorf("touch ranges %d..%d and %d..%d are empty", x.Minimum, x.Maximum, y.Minimum, y.Maximum)
 	}
-	return newTouchGeometry(x.Minimum, x.Maximum, y.Minimum, y.Maximum, Config.Width, Config.Height), nil
+	return newTouchGeometry(x.Minimum, x.Maximum, y.Minimum, y.Maximum, Config.Width, Config.Height)
 }
