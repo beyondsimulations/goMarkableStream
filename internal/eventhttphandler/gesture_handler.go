@@ -3,6 +3,7 @@ package eventhttphandler
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -24,11 +25,14 @@ const (
 // NewGestureHandler creates an event habdler that subscribes from the inputEvents.
 // With a touch geometry (Paper Pro, Paper Pro Move) it names each swipe as
 // the browser's view shows the tablet; without one (reMarkable 2) it sends
-// the direction totals and the browser names them.
-func NewGestureHandler(inputEvents *pubsub.PubSub, geometry *remarkable.TouchGeometry) *GestureHandler {
+// the direction totals and the browser names them. grabTouch takes the touch
+// panel from xochitl or gives it back (nil where it cannot); allowBlock, if
+// set, says why taking it is refused right now.
+func NewGestureHandler(inputEvents *pubsub.PubSub, geometry *remarkable.TouchGeometry, grabTouch func(bool) error, allowBlock func() error) *GestureHandler {
 	return &GestureHandler{
 		inputEventBus: inputEvents,
 		geometry:      geometry,
+		block:         &touchBlock{grab: grabTouch, allow: allowBlock},
 	}
 }
 
@@ -36,11 +40,19 @@ func NewGestureHandler(inputEvents *pubsub.PubSub, geometry *remarkable.TouchGeo
 type GestureHandler struct {
 	inputEventBus *pubsub.PubSub
 	geometry      *remarkable.TouchGeometry
+	block         *touchBlock
 }
 
 // swipeMessage is one named swipe, for example {"swipe": "swipe-left"}.
 type swipeMessage struct {
 	Swipe string `json:"swipe"`
+}
+
+// blockMessage answers ?block=1 first: whether xochitl now ignores the
+// fingers, and why not.
+type blockMessage struct {
+	TouchBlocked bool   `json:"touchBlocked"`
+	Error        string `json:"error,omitempty"`
 }
 
 type gesture struct {
@@ -134,10 +146,41 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	w.Header().Set("Content-Type", "application/x-ndjson")
 
+	// ?block=1 keeps xochitl from seeing the fingers while this request
+	// lasts; the swipes still reach this stream. The request ends after
+	// blockLease, between gestures, and the browser asks again at once, so
+	// a page that went away without closing its connection lets go.
+	var lease <-chan time.Time
+	if r.URL.Query().Get("block") == "1" {
+		status := blockMessage{TouchBlocked: true}
+		if err := h.block.acquire(); err != nil {
+			log.Printf("Touch: cannot block the touch panel: %v", err)
+			status = blockMessage{Error: err.Error()}
+		} else {
+			defer h.block.release()
+			leaseTimer := time.NewTimer(blockLease)
+			defer leaseTimer.Stop()
+			lease = leaseTimer.C
+		}
+		if err := enc.Encode(status); err != nil {
+			return
+		}
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+	}
+
+	// pending: events since the last tick, so a gesture may be under way.
+	var pending, leaseOver bool
 	for {
 		select {
 		case <-r.Context().Done():
 			return
+		case <-lease:
+			if !pending {
+				return
+			}
+			leaseOver = true // after this gesture
 		case <-tick.C:
 			var message any
 			if h.geometry != nil {
@@ -158,7 +201,12 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			tracker.reset()
 			reader.endGesture()
+			pending = false
+			if leaseOver {
+				return
+			}
 		case event := <-eventC:
+			pending = true
 			if h.geometry != nil {
 				reader.observe(event)
 			} else {

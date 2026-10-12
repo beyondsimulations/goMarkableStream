@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -33,7 +34,7 @@ func (s stripFS) Open(name string) (http.File, error) {
 	return s.fs.Open("client" + name)
 }
 
-func setMuxer(eventPublisher *pubsub.PubSub, touchGeometry *remarkable.TouchGeometry, tm *TailscaleManager, restartCh chan<- bool, jwtMgr *jwtutil.Manager) *http.ServeMux {
+func setMuxer(eventPublisher *pubsub.PubSub, touchGeometry *remarkable.TouchGeometry, grabTouch func(bool) error, tm *TailscaleManager, restartCh chan<- bool, jwtMgr *jwtutil.Manager) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Custom handler to serve index.html for root path
@@ -59,7 +60,17 @@ func setMuxer(eventPublisher *pubsub.PubSub, touchGeometry *remarkable.TouchGeom
 
 	wsHandler := eventhttphandler.NewEventHandler(eventPublisher)
 	mux.Handle("/events", wsHandler)
-	gestureHandler := eventhttphandler.NewGestureHandler(eventPublisher, touchGeometry)
+	gestureHandler := eventhttphandler.NewGestureHandler(eventPublisher, touchGeometry, grabTouch, func() error {
+		// Shared publicly (Funnel), any viewer could take the tablet's touch
+		// away from its owner, and their requests look like the owner's.
+		if tm == nil {
+			return nil
+		}
+		if enabled, _, _ := tm.GetFunnelInfo(); enabled {
+			return errors.New("not available while the stream is shared publicly (Funnel)")
+		}
+		return nil
+	})
 	mux.Handle("/gestures", gestureHandler)
 
 	screenshotHandler := stream.NewScreenshotHandler(file, pointerAddr)

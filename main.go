@@ -248,7 +248,7 @@ func main() {
 	restartCh := make(chan bool, 1)
 
 	// Pass TailscaleManager and restart channel to setMuxer
-	mux := setMuxer(eventPublisher, touchGeometry, listenerResult.TailscaleManager, restartCh, jwtMgr)
+	mux := setMuxer(eventPublisher, touchGeometry, eventScanner.GrabTouch, listenerResult.TailscaleManager, restartCh, jwtMgr)
 
 	var handler http.Handler
 	handler = AuthMiddleware(mux, jwtMgr)

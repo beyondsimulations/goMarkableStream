@@ -80,7 +80,7 @@ For older firmware versions:
 ### Interaction
 - **Laser Pointer**: Red laser pointer that follows pen hover position (toggle with `L` key).
 - **Gesture Support**: Swipe gestures for slide navigation, integrated with Reveal.js presentations.
-- **Keyboard Shortcuts**: `R` for rotation, `L` for laser pointer, `B` for the paper background and `D` for drawing or content on top in presentation mode, `?` for help overlay.
+- **Keyboard Shortcuts**: `R` for rotation, `L` for laser pointer, and in presentation mode `B` for the paper background, `Z` for drawing or content on top and `I` to make the tablet ignore your fingers; `?` for help overlay.
 - **Layer Control**: Toggle drawing layer above or below embedded content.
 
 ### Presentation Mode
@@ -311,7 +311,7 @@ This feature is ideal for enhancing presentations or educational content by allo
 - This action will embed your chosen presentation or video in the stream's background.
 - You can then annotate or draw on the reMarkable tablet, with your input appearing over the embedded content in the stream.
 - Only the ink is shown: the white of the tablet's page is rendered transparent. Press `B` to switch to the opaque white page and back, for example to write on a blank sheet. The white page also hides the embedded content, so the whole window becomes a white board.
-- Press `D` to put the embedded content on top of the drawing, for example to click a link or play a video in it, and again to put the drawing back on top. The shortcuts reach the page only while it has the keyboard: after clicking inside the embedded content, click outside it (the sidebar or the control bar) first.
+- Press `Z` to put the embedded content on top of the drawing, for example to click a link or play a video in it, and again to put the drawing back on top. The shortcuts reach the page only while it has the keyboard: after clicking inside the embedded content, click outside it (the sidebar or the control bar) first.
 - Nothing else covers the slides while you present. Move the pointer to show a small control bar (connection, white board, laser, full screen); it fades out again once the pointer rests. A hint with the keys `B`, `L` and `F` appears the first time only, and a lost connection shows as a small label, or as a card with Try Again when the tablet stays unreachable.
 
 ### Swipe Gestures
@@ -326,6 +326,8 @@ Swipe with one finger on the tablet to control a reveal.js presentation. A swipe
 | diagonal, top left to bottom right | previous slide |
 | diagonal, bottom left to top right | drawing on top |
 | diagonal, bottom right to top left | content on top |
+
+The tablet's own software sees the same swipes and turns its notebook page, adding a new page at the end of a notebook. Press `I` in the browser to stop that: the tablet then ignores your fingers (no page turns, no taps on its menus) while the swipes still change the slides; the pen works as usual. Press `I` again to give the tablet its touch back; closing the presentation page or stopping goMarkableStream gives it back as well, and a page that goes away without closing (a laptop going to sleep) lets go within about half a minute. While the stream is shared publicly with Tailscale Funnel, `I` is not available, so viewers cannot take the touch away.
 
 On the Paper Pro and the Paper Pro Move, swipes are read as the browser shows the tablet. Holding the tablet in landscape with its top edge on the right, press `R` (the picture turns with it); with the top edge on the left, add `&flip=true` to the URL as well. Touches with two fingers are ignored. The reMarkable 2 keeps its original swipe detection, with right to left as the next slide.
 

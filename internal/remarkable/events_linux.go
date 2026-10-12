@@ -6,6 +6,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"syscall"
 	"time"
 	"unsafe"
 
@@ -112,6 +113,35 @@ func (e *EventScanner) StartAndPublish(ctx context.Context, pubsub *pubsub.PubSu
 			})
 		}
 	}()
+}
+
+// eviocgrab is EVIOCGRAB from linux/input.h: _IOW('E', 0x90, int).
+const eviocgrab = 1<<30 | 4<<16 | 'E'<<8 | 0x90
+
+// GrabTouch takes the touch panel for this program alone, or gives it back.
+// While it is taken, xochitl sees no finger input, so a swipe no longer
+// turns its page; this program still reads every touch, and the pen is a
+// separate device. The kernel gives the panel back when the program exits.
+func (e *EventScanner) GrabTouch(grab bool) error {
+	var arg uintptr
+	if grab {
+		arg = 1
+	}
+	// Control rather than Fd: Fd would switch the file to blocking mode and
+	// end the read deadlines the reader relies on.
+	conn, err := e.touch.SyscallConn()
+	if err != nil {
+		return err
+	}
+	var ioctlErr error
+	if err := conn.Control(func(fd uintptr) {
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, fd, eviocgrab, arg); errno != 0 {
+			ioctlErr = errno
+		}
+	}); err != nil {
+		return err
+	}
+	return ioctlErr
 }
 
 func readEvent(inputDevice *os.File) (events.InputEvent, error) {
