@@ -443,11 +443,16 @@ document.getElementById('switchOrderButton').addEventListener('click', toggleLay
 // while this page's gesture stream is open, so it ends with the page.
 let touchBlockWanted = false;
 let touchBlockConfirmed = false;
-// A lost connection: the server lets go of the panel after its grace
-// (5 s), and the page says so then, unless the block was renewed in time.
-const TOUCH_BLOCK_GRACE_MS = 5000;
+// A lost connection is mentioned only when it lasts: a short drop is not
+// worth a notice, and the tablet keeps the block for a few seconds anyway.
+const TOUCH_BLOCK_LOST_NOTICE_MS = 5000;
 let touchBlockLostTimer = null;
 let touchBlockLapsed = false;
+// Turning the block off waits for the server's answer before saying that
+// the tablet reacts again: another page may still block it. Without an
+// answer in time, the page says what it can.
+const TOUCH_BLOCK_RELEASE_ANSWER_MS = 3000;
+let touchBlockReleaseTimer = null;
 
 function setTouchBlock(wanted) {
     touchBlockWanted = wanted;
@@ -455,6 +460,8 @@ function setTouchBlock(wanted) {
     touchBlockLapsed = false;
     clearTimeout(touchBlockLostTimer);
     touchBlockLostTimer = null;
+    clearTimeout(touchBlockReleaseTimer);
+    touchBlockReleaseTimer = null;
     gestureWorker.postMessage({ type: 'block', block: wanted });
     const button = document.getElementById('touchBlockButton');
     button.classList.toggle('toggled', wanted);
@@ -462,12 +469,20 @@ function setTouchBlock(wanted) {
 }
 
 // The server's answer, sent each time the gesture stream opens while the
-// block is asked for: confirmed once, or turned off with the reason. After
-// the block is turned off, elsewhere says that another page still has it.
-function touchBlockAnswered(blocked, error, elsewhere) {
-    if (elsewhere) {
-        if (!touchBlockWanted) {
-            showMessage('The tablet still ignores your fingers: another page has I on', MessageDuration.IMPORTANT);
+// block is asked for: confirmed once, or turned off with the reason. To
+// turning the block off it answers released, or elsewhere when another
+// page still has it.
+function touchBlockAnswered(blocked, error, elsewhere, released) {
+    if (elsewhere || released) {
+        if (touchBlockWanted || touchBlockReleaseTimer === null) {
+            return; // not the answer to this page's last turning off
+        }
+        clearTimeout(touchBlockReleaseTimer);
+        touchBlockReleaseTimer = null;
+        if (elsewhere) {
+            showMessage('The tablet still ignores your fingers: another page has I on, or closed less than half a minute ago', MessageDuration.IMPORTANT);
+        } else {
+            showMessage('The tablet reacts to your fingers again', MessageDuration.QUICK);
         }
         return;
     }
@@ -488,9 +503,10 @@ function touchBlockAnswered(blocked, error, elsewhere) {
     }
 }
 
-// The gesture stream failed while the block was on. Once the server's
-// grace has passed without a new connection, the tablet reacts to the
-// fingers again: the page says so, and again when the block is back.
+// The gesture stream failed while the block was on. The tablet lets go of
+// the block once it notices, which the page cannot see: if the connection
+// stays lost, the page says the tablet may react to fingers, and says so
+// again when the block is back.
 function touchBlockLost() {
     if (!touchBlockWanted || !touchBlockConfirmed || touchBlockLostTimer !== null) {
         return;
@@ -500,16 +516,19 @@ function touchBlockLost() {
         if (touchBlockWanted && touchBlockConfirmed) {
             touchBlockConfirmed = false;
             touchBlockLapsed = true;
-            showMessage('Connection to the tablet lost: it reacts to your fingers until the connection is back', MessageDuration.IMPORTANT);
+            showMessage('Connection to the tablet lost: it may react to your fingers until the connection is back', MessageDuration.IMPORTANT);
         }
-    }, TOUCH_BLOCK_GRACE_MS);
+    }, TOUCH_BLOCK_LOST_NOTICE_MS);
 }
 
 // The button and the I key.
 function toggleTouchBlock() {
     setTouchBlock(!touchBlockWanted);
     if (!touchBlockWanted) {
-        showMessage('The tablet reacts to your fingers again', MessageDuration.QUICK);
+        touchBlockReleaseTimer = setTimeout(() => {
+            touchBlockReleaseTimer = null;
+            showMessage('Touch block off: the tablet reacts to your fingers once it gets the message', MessageDuration.NORMAL);
+        }, TOUCH_BLOCK_RELEASE_ANSWER_MS);
     }
 }
 

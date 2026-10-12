@@ -56,25 +56,31 @@ func waitGrabs(t *testing.T, g *fakeGrab, want []bool) {
 	t.Fatalf("grabs %v, want %v", g.seen(), want)
 }
 
+// mustAcquire takes a hold for the page or fails the test.
+func mustAcquire(t *testing.T, b *touchBlock, client string) uint64 {
+	t.Helper()
+	id, err := b.acquire(client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
 // The panel is taken for the first holder and given back after the last,
 // once the grace has passed.
 func TestTouchBlockHoldsWhileAnyoneAsks(t *testing.T) {
 	shortTimes(t, time.Minute, 20*time.Millisecond)
 	g := &fakeGrab{}
 	b := &touchBlock{grab: g.grab}
-	if err := b.acquire("page-a"); err != nil {
-		t.Fatal(err)
-	}
-	if err := b.acquire("page-a"); err != nil {
-		t.Fatal(err)
-	}
-	b.release("page-a")
+	first := mustAcquire(t, b, "page-a")
+	second := mustAcquire(t, b, "page-a")
+	b.release(first)
 	time.Sleep(50 * time.Millisecond)
 	if got := g.seen(); !reflect.DeepEqual(got, []bool{true}) {
 		t.Fatalf("with one holder left: %v, want [true]", got)
 	}
-	b.release("page-a")
-	b.release("page-a") // one release too many changes nothing
+	b.release(second)
+	b.release(second) // one release too many changes nothing
 	waitGrabs(t, g, []bool{true, false})
 }
 
@@ -85,10 +91,7 @@ func TestTouchBlockRenewalKeepsThePanel(t *testing.T) {
 	g := &fakeGrab{}
 	b := &touchBlock{grab: g.grab}
 	for i := 0; i < 3; i++ {
-		if err := b.acquire("page-a"); err != nil {
-			t.Fatal(err)
-		}
-		b.release("page-a")
+		b.release(mustAcquire(t, b, "page-a"))
 		time.Sleep(20 * time.Millisecond)
 	}
 	time.Sleep(20 * time.Millisecond)
@@ -110,14 +113,9 @@ func TestTouchBlockFailedGiveBack(t *testing.T) {
 		}
 		return nil
 	}}
-	if err := b.acquire("page-a"); err != nil {
-		t.Fatal(err)
-	}
-	b.release("page-a")
+	b.release(mustAcquire(t, b, "page-a"))
 	time.Sleep(30 * time.Millisecond)
-	if err := b.acquire("page-a"); err != nil {
-		t.Fatal(err)
-	}
+	mustAcquire(t, b, "page-a")
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if !reflect.DeepEqual(calls, []bool{true, false, true}) {
@@ -130,15 +128,13 @@ func TestTouchBlockRefusal(t *testing.T) {
 	g := &fakeGrab{}
 	var refuse error
 	b := &touchBlock{grab: g.grab, allow: func() error { return refuse }}
-	if err := b.acquire("page-a"); err != nil {
-		t.Fatal(err)
-	}
+	mustAcquire(t, b, "page-a")
 	refuse = errors.New("shared publicly")
-	if err := b.acquire("page-a"); err == nil {
+	if _, err := b.acquire("page-a"); err == nil {
 		t.Fatal("joined a block while it is refused")
 	}
-	if b.holders["page-a"] != 1 {
-		t.Fatalf("holders %v, want page-a once", b.holders)
+	if len(b.holds) != 1 {
+		t.Fatalf("holds %v, want one", b.holds)
 	}
 }
 
@@ -146,17 +142,15 @@ func TestTouchBlockRefusal(t *testing.T) {
 func TestTouchBlockFailedGrabHoldsNothing(t *testing.T) {
 	g := &fakeGrab{fail: errors.New("busy")}
 	b := &touchBlock{grab: g.grab}
-	if err := b.acquire("page-a"); err == nil {
+	if _, err := b.acquire("page-a"); err == nil {
 		t.Fatal("acquire succeeded although the grab failed")
 	}
 	g.fail = nil
-	if err := b.acquire("page-a"); err != nil {
-		t.Fatal(err)
-	}
+	mustAcquire(t, b, "page-a")
 	if got := g.seen(); !reflect.DeepEqual(got, []bool{true}) {
 		t.Fatalf("got %v, want [true]", got)
 	}
-	if err := (&touchBlock{}).acquire("page-a"); err == nil {
+	if _, err := (&touchBlock{}).acquire("page-a"); err == nil {
 		t.Fatal("acquire succeeded without a way to grab")
 	}
 }
@@ -167,16 +161,12 @@ func TestTouchBlockDrop(t *testing.T) {
 	shortTimes(t, time.Minute, time.Hour) // the grace never runs out here
 	g := &fakeGrab{}
 	b := &touchBlock{grab: g.grab}
-	if err := b.acquire("page-a"); err != nil {
-		t.Fatal(err)
-	}
-	if err := b.acquire("page-b"); err != nil {
-		t.Fatal(err)
-	}
+	a := mustAcquire(t, b, "page-a")
+	bb := mustAcquire(t, b, "page-b")
 	if !b.drop("page-a") {
 		t.Fatal("page-b still holds the panel, but drop reported no one")
 	}
-	b.release("page-a") // page-a's old request ends
+	b.release(a) // page-a's old request ends
 	if got := g.seen(); !reflect.DeepEqual(got, []bool{true}) {
 		t.Fatalf("with page-b holding: %v, want [true]", got)
 	}
@@ -186,9 +176,44 @@ func TestTouchBlockDrop(t *testing.T) {
 	if got := g.seen(); !reflect.DeepEqual(got, []bool{true, false}) {
 		t.Fatalf("after the last drop: %v, want [true false] at once", got)
 	}
-	b.release("page-b")
-	if b.drop("page-c") || len(g.seen()) != 2 {
-		t.Fatalf("drop without holders: grabs %v", g.seen())
+	b.release(bb)
+	if len(g.seen()) != 2 {
+		t.Fatalf("a dropped request's release grabbed again: %v", g.seen())
+	}
+}
+
+// Off and on again quickly: the old request, ended by drop, returns only
+// after the new one took its hold, and must not end the new hold.
+func TestTouchBlockOldReleaseKeepsNewHold(t *testing.T) {
+	shortTimes(t, time.Minute, 20*time.Millisecond)
+	g := &fakeGrab{}
+	b := &touchBlock{grab: g.grab}
+	old := mustAcquire(t, b, "page-a")
+	b.drop("page-a")
+	mustAcquire(t, b, "page-a")
+	b.release(old)
+	time.Sleep(60 * time.Millisecond)
+	if got := g.seen(); !reflect.DeepEqual(got, []bool{true, false, true}) {
+		t.Fatalf("grabs %v, want [true false true] and the panel still held", got)
+	}
+}
+
+// Only a page that blocked the panel may end it early or hear about others:
+// another page's unblock neither cuts the grace short nor learns anything.
+func TestTouchBlockDropByStranger(t *testing.T) {
+	shortTimes(t, time.Minute, time.Hour)
+	g := &fakeGrab{}
+	b := &touchBlock{grab: g.grab}
+	held := mustAcquire(t, b, "page-a")
+	if b.drop("page-x") || b.drop("") {
+		t.Fatal("a stranger learned that another page holds the panel")
+	}
+	b.release(held) // the grace starts, with page-a as the last holder
+	if b.drop("page-x") || len(g.seen()) != 1 {
+		t.Fatalf("a stranger cut the grace short: %v", g.seen())
+	}
+	if b.drop("page-a") || !reflect.DeepEqual(g.seen(), []bool{true, false}) {
+		t.Fatalf("the last holder could not end the grace: %v", g.seen())
 	}
 }
 
@@ -270,8 +295,8 @@ func TestGestureHandlerLeaseEndsRequest(t *testing.T) {
 	}
 }
 
-// ?unblock=1 releases the page's own block at once and says when another
-// page still blocks the panel; without one it says nothing.
+// ?unblock=1 releases the page's own block at once and says whether
+// another page still blocks the panel.
 func TestGestureHandlerUnblock(t *testing.T) {
 	shortTimes(t, time.Minute, time.Hour)
 	g := &fakeGrab{}
@@ -299,11 +324,8 @@ func TestGestureHandlerUnblock(t *testing.T) {
 
 	stopB()
 	wu, stopU = serve("/gestures?client=page-b&unblock=1")
-	time.Sleep(50 * time.Millisecond)
+	waitFor(t, wu, `{"touchBlocked":false,"released":true}`)
 	stopU()
-	if wu.String() != "" {
-		t.Fatalf("with no other page blocking: wrote %q", wu.String())
-	}
 	if got := g.seen(); !reflect.DeepEqual(got, []bool{true, false}) {
 		t.Fatalf("grabs %v, want [true false] without waiting for the grace", got)
 	}

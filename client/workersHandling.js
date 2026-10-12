@@ -236,7 +236,7 @@ gestureWorker.onmessage = (event) => {
 			break;
 		}
 		case 'touchBlock':
-			touchBlockAnswered(data.blocked, data.error, data.elsewhere);
+			touchBlockAnswered(data.blocked, data.error, data.elsewhere, data.released);
 			break;
 		case 'touchBlockLost':
 			touchBlockLost();

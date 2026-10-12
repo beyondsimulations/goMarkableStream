@@ -151,7 +151,7 @@ async function fetchStream(signal) {
 			try {
 				const json = JSON.parse(jsonStr);
 				if ('touchBlocked' in json) {
-					postMessage({ type: 'touchBlock', blocked: json.touchBlocked, error: json.error, elsewhere: json.elsewhere });
+					postMessage({ type: 'touchBlock', blocked: json.touchBlocked, error: json.error, elsewhere: json.elsewhere, released: json.released });
 					continue;
 				}
 				const swipe = json.swipe || LEGACY_SWIPES[checkSwipeDirection(json)];

@@ -49,12 +49,13 @@ type swipeMessage struct {
 }
 
 // blockMessage answers ?block=1 first: whether xochitl now ignores the
-// fingers, and why not. After ?unblock=1 it says, with Elsewhere, that
-// another page still blocks them.
+// fingers, and why not. It answers ?unblock=1 with Released, or with
+// Elsewhere when another page still blocks them.
 type blockMessage struct {
 	TouchBlocked bool   `json:"touchBlocked"`
 	Error        string `json:"error,omitempty"`
 	Elsewhere    bool   `json:"elsewhere,omitempty"`
+	Released     bool   `json:"released,omitempty"`
 }
 
 type gesture struct {
@@ -162,11 +163,11 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case query.Get("block") == "1":
 		status = &blockMessage{TouchBlocked: true}
-		if err := h.block.acquire(client); err != nil {
+		if id, err := h.block.acquire(client); err != nil {
 			log.Printf("Touch: cannot block the touch panel: %v", err)
 			status = &blockMessage{Error: err.Error()}
 		} else {
-			defer h.block.release(client)
+			defer h.block.release(id)
 			leaseTimer := time.NewTimer(blockLease)
 			defer leaseTimer.Stop()
 			lease = leaseTimer.C
@@ -174,6 +175,8 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case query.Get("unblock") == "1":
 		if h.block.drop(client) {
 			status = &blockMessage{TouchBlocked: true, Elsewhere: true}
+		} else {
+			status = &blockMessage{Released: true}
 		}
 	}
 	if status != nil {

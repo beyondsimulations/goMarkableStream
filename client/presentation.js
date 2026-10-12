@@ -18,7 +18,7 @@ const PRESENT_STATUS_TEXT = {
 	connecting: 'Connecting',
 	connected: 'Connected',
 	paused: 'Paused',
-	'rate-limited': 'Another viewer has the stream',
+	'rate-limited': 'Another connection has the stream',
 	reconnecting: 'Reconnecting',
 	disconnected: 'Not connected'
 };

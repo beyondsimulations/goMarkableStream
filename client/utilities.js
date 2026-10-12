@@ -122,7 +122,7 @@ function updateConnectionStatus(state) {
 			break;
 		case ConnectionState.RATE_LIMITED:
 			indicator.classList.add('rate-limited');
-			if (statusLabel) statusLabel.textContent = 'Another viewer has the stream';
+			if (statusLabel) statusLabel.textContent = 'Another connection has the stream';
 			break;
 		case ConnectionState.RECONNECTING:
 			indicator.classList.add('reconnecting');
