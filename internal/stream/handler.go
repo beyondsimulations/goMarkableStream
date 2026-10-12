@@ -25,6 +25,10 @@ var (
 	// penLiftCooldown is the grace period after pen lift during which we continue
 	// streaming to flush buffered frames and catch late xochitl renders.
 	penLiftCooldown = 300 * time.Millisecond
+
+	// frameWriteTimeout bounds writing one frame, so a dead connection is
+	// noticed (generous: a full frame is zstd-compressed and small).
+	frameWriteTimeout = 30 * time.Second
 )
 
 var rawFrameBuffer = sync.Pool{
@@ -166,6 +170,12 @@ func (h *StreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Track current pressure value to distinguish hover from touch
 	var currentPressure int32
 
+	// Each frame must be written within frameWriteTimeout: a write stuck on
+	// a connection that died without closing fails then, which ends this
+	// request and frees the stream, instead of waiting for TCP to give up
+	// (many minutes).
+	rc := http.NewResponseController(w)
+
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Connection", "close")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -229,6 +239,12 @@ func (h *StreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			cooldownActive = false
 		case <-ticker.C:
 			if writing {
+				// Ended meanwhile (select picks among ready cases at random):
+				// a new deadline would undo the one that ended a stuck write.
+				if r.Context().Err() != nil {
+					return
+				}
+				_ = rc.SetWriteDeadline(time.Now().Add(frameWriteTimeout))
 				next := rate * time.Millisecond
 				if frameSize := h.fetchAndSendDeltaAsync(w, asyncReader); frameSize > 0 {
 					next = adaptRate(frameSize, rate*time.Millisecond)

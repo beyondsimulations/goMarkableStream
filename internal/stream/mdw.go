@@ -2,8 +2,10 @@ package stream
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/owulveryck/goMarkableStream/internal/debug"
 )
@@ -20,6 +22,16 @@ var (
 
 	// Callback invoked when activeWriters drops to 0
 	onIdleCallback func()
+
+	// The browser page holding the stream (its ?client= id, "" if none) and
+	// how to end its request. A page that opens the stream again after a
+	// lost connection replaces its own old request, which the server may
+	// not have noticed is gone, instead of being refused.
+	holderClient string
+	holderCancel func()
+
+	// takeoverWait bounds how long a page waits for its old request to end.
+	takeoverWait = 5 * time.Second
 )
 
 // SetOnIdleCallback sets a callback to be invoked when all streaming connections close.
@@ -50,10 +62,18 @@ func CancelActiveStreams() {
 }
 
 // ThrottlingMiddleware to allow new connections only if there are no active writers or if max writers is exceeded.
+// A request from the page that holds the stream (same ?client= id) ends the
+// old request and takes its place.
 func ThrottlingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		client := r.URL.Query().Get("client")
 		debug.Log("Throttle: connection from %s, activeWriters=%d", r.RemoteAddr, activeWriters)
 		mu.Lock()
+		if activeWriters >= maxWriters && client != "" && client == holderClient && holderCancel != nil {
+			log.Printf("Stream: %s opened the stream again, ending its previous connection", r.RemoteAddr)
+			holderCancel()
+			waitForWriters(takeoverWait)
+		}
 		if activeWriters >= maxWriters {
 			mu.Unlock()
 			debug.Log("Throttle: too many requests, rejecting (%s)", r.RemoteAddr)
@@ -62,20 +82,36 @@ func ThrottlingMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		for activeWriters > 0 {
-			debug.Log("Throttle: waiting for active writers to finish (%s)", r.RemoteAddr)
-			cond.Wait() // Wait for active writers to finish
-		}
-
 		// Capture current stream context while holding lock
 		currentStreamCtx := streamCtx
 		activeWriters++
 		debug.Log("Throttle: proceeding with request (%s)", r.RemoteAddr)
-		mu.Unlock()
 
 		// Create merged context: cancels if client disconnects OR server cancels
 		mergedCtx, mergedCancel := context.WithCancel(r.Context())
 		defer mergedCancel()
+
+		// Taking over also unblocks a write stuck on a dead connection.
+		rc := http.NewResponseController(w)
+		holderClient = client
+		holderCancel = func() {
+			mergedCancel()
+			_ = rc.SetWriteDeadline(time.Now())
+		}
+		mu.Unlock()
+
+		// Deferred, so a panic in the handler cannot keep the stream taken.
+		defer func() {
+			mu.Lock()
+			activeWriters--
+			holderClient, holderCancel = "", nil
+			debug.Log("Throttle: request completed, activeWriters=%d (%s)", activeWriters, r.RemoteAddr)
+			if activeWriters == 0 && onIdleCallback != nil {
+				onIdleCallback()
+			}
+			cond.Broadcast() // Notify waiting goroutines
+			mu.Unlock()
+		}()
 
 		// Monitor stream context cancellation in background
 		go func() {
@@ -91,14 +127,20 @@ func ThrottlingMiddleware(next http.Handler) http.Handler {
 		r = r.WithContext(mergedCtx)
 
 		next.ServeHTTP(w, r) // Serve the request
+	})
+}
 
+// waitForWriters waits, with mu held, until the stream is free or limit has
+// passed.
+func waitForWriters(limit time.Duration) {
+	deadline := time.Now().Add(limit)
+	wake := time.AfterFunc(limit, func() {
 		mu.Lock()
-		activeWriters--
-		debug.Log("Throttle: request completed, activeWriters=%d (%s)", activeWriters, r.RemoteAddr)
-		if activeWriters == 0 && onIdleCallback != nil {
-			onIdleCallback()
-		}
-		cond.Broadcast() // Notify waiting goroutines
+		cond.Broadcast()
 		mu.Unlock()
 	})
+	defer wake.Stop()
+	for activeWriters >= maxWriters && time.Now().Before(deadline) {
+		cond.Wait()
+	}
 }

@@ -3,10 +3,43 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 let reconnectTimeout = null;
 let isReconnecting = false;
+// Refusals in a row (429: another connection holds the stream).
+let rateLimitedRetries = 0;
 
-// Calculate reconnection delay with exponential backoff (1s, 2s, 4s, 8s, 16s)
+// Names this page to the server, so the stream it opens again after a lost
+// connection replaces its own old one, which the server may not have
+// noticed is gone, instead of being refused. A new id for each page load: a
+// reloaded page closes its old connection properly.
+const streamClientId = Array.from(crypto.getRandomValues(new Uint8Array(16)),
+	(b) => b.toString(16).padStart(2, '0')).join('');
+
+// Calculate reconnection delay with exponential backoff (2s, 4s, 8s, then
+// every 15s)
 function getReconnectDelay() {
-	return Math.pow(2, reconnectAttempts) * 1000;
+	return Math.min(Math.pow(2, reconnectAttempts) * 1000, 15000);
+}
+
+// Starts a fresh stream worker. The old one is ended first: its fetch would
+// otherwise keep holding the stream against the new one.
+function restartStreamWorker() {
+	streamWorker.terminate();
+	streamWorker = new Worker('worker_stream_processing.js');
+	// Reset isReconnecting so next error can trigger another attempt
+	isReconnecting = false;
+	initStreamWorker();
+}
+
+// A refused stream is asked for again until it gets in (1s, 2s, 4s, 8s,
+// then every 10s), without counting towards MAX_RECONNECT_ATTEMPTS: the
+// server answered, and the other connection may be this page's own that the
+// server has not dropped yet, or a viewer that leaves.
+function retryRateLimited() {
+	isReconnecting = true;
+	hideReconnectBanner();
+	const delay = Math.min(Math.pow(2, rateLimitedRetries) * 1000, 10000);
+	rateLimitedRetries++;
+	clearTimeout(reconnectTimeout);
+	reconnectTimeout = setTimeout(restartStreamWorker, delay);
 }
 
 // Attempt to reconnect the stream
@@ -34,14 +67,8 @@ function attemptStreamReconnect() {
 	const delay = getReconnectDelay();
 	console.log(`Reconnecting in ${delay/1000}s (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
 
-	reconnectTimeout = setTimeout(() => {
-		// Just replace the worker - don't send terminate
-		// The old worker will be garbage collected
-		streamWorker = new Worker('worker_stream_processing.js');
-		// Reset isReconnecting so next error can trigger another attempt
-		isReconnecting = false;
-		initStreamWorker();
-	}, delay);
+	clearTimeout(reconnectTimeout);
+	reconnectTimeout = setTimeout(restartStreamWorker, delay);
 }
 
 // Reset reconnection state on successful frame
@@ -52,6 +79,7 @@ function resetReconnectState() {
 		hideReconnectBanner();
 	}
 	reconnectAttempts = 0;
+	rateLimitedRetries = 0;
 	isReconnecting = false;
 	if (reconnectTimeout) {
 		clearTimeout(reconnectTimeout);
@@ -79,6 +107,7 @@ function handleStreamMessage(event) {
 			// Check if this is a rate limit (429) error
 			if (data.code === 'RATE_LIMITED') {
 				updateConnectionStatus(ConnectionState.RATE_LIMITED);
+				retryRateLimited();
 				return;
 			}
 
@@ -118,6 +147,7 @@ function initStreamWorker() {
 		width: screenWidth,
 		height: screenHeight,
 		rate: rate,
+		clientId: streamClientId,
 		authToken: typeof getAuthToken === 'function' ? getAuthToken() : null,
 	});
 }
