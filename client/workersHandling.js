@@ -9,9 +9,10 @@ let rateLimitedRetries = 0;
 
 // Names this page to the server, so the stream it opens again after a lost
 // connection replaces its own old one, which the server may not have
-// noticed is gone, instead of being refused. A new id for each page load: a
-// reloaded page closes its old connection properly.
-const streamClientId = Array.from(crypto.getRandomValues(new Uint8Array(16)),
+// noticed is gone, instead of being refused, and so turning the touch block
+// off ends this page's block and no other page's. A new id for each page
+// load: a reloaded page closes its old connections properly.
+const pageClientId = Array.from(crypto.getRandomValues(new Uint8Array(16)),
 	(b) => b.toString(16).padStart(2, '0')).join('');
 
 // Exponential backoff: 1s for attempt 0, doubling up to capMs.
@@ -165,7 +166,7 @@ function initStreamWorker() {
 		width: screenWidth,
 		height: screenHeight,
 		rate: rate,
-		clientId: streamClientId,
+		clientId: pageClientId,
 		authToken: typeof getAuthToken === 'function' ? getAuthToken() : null,
 	});
 }
@@ -192,6 +193,7 @@ gestureWorker.postMessage({
 	type: 'init',
 	authToken: typeof getAuthToken === 'function' ? getAuthToken() : null,
 	rotation: viewRotation(),
+	clientId: pageClientId,
 });
 
 // Tells the embedded reveal.js deck to move: 'next' and 'prev' step through
@@ -234,7 +236,10 @@ gestureWorker.onmessage = (event) => {
 			break;
 		}
 		case 'touchBlock':
-			touchBlockAnswered(data.blocked, data.error);
+			touchBlockAnswered(data.blocked, data.error, data.elsewhere);
+			break;
+		case 'touchBlockLost':
+			touchBlockLost();
 			break;
 		case 'error':
 			console.error('Error from worker:', event.data.message);

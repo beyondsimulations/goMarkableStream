@@ -443,10 +443,18 @@ document.getElementById('switchOrderButton').addEventListener('click', toggleLay
 // while this page's gesture stream is open, so it ends with the page.
 let touchBlockWanted = false;
 let touchBlockConfirmed = false;
+// A lost connection: the server lets go of the panel after its grace
+// (5 s), and the page says so then, unless the block was renewed in time.
+const TOUCH_BLOCK_GRACE_MS = 5000;
+let touchBlockLostTimer = null;
+let touchBlockLapsed = false;
 
 function setTouchBlock(wanted) {
     touchBlockWanted = wanted;
     touchBlockConfirmed = false;
+    touchBlockLapsed = false;
+    clearTimeout(touchBlockLostTimer);
+    touchBlockLostTimer = null;
     gestureWorker.postMessage({ type: 'block', block: wanted });
     const button = document.getElementById('touchBlockButton');
     button.classList.toggle('toggled', wanted);
@@ -454,8 +462,15 @@ function setTouchBlock(wanted) {
 }
 
 // The server's answer, sent each time the gesture stream opens while the
-// block is asked for: confirmed once, or turned off with the reason.
-function touchBlockAnswered(blocked, error) {
+// block is asked for: confirmed once, or turned off with the reason. After
+// the block is turned off, elsewhere says that another page still has it.
+function touchBlockAnswered(blocked, error, elsewhere) {
+    if (elsewhere) {
+        if (!touchBlockWanted) {
+            showMessage('The tablet still ignores your fingers: another page has I on', MessageDuration.IMPORTANT);
+        }
+        return;
+    }
     if (!touchBlockWanted) {
         return; // an answer for a block already turned off
     }
@@ -464,10 +479,30 @@ function touchBlockAnswered(blocked, error) {
         showMessage('Could not block the tablet\'s touch' + (error ? ': ' + error : ''), MessageDuration.IMPORTANT);
         return;
     }
+    clearTimeout(touchBlockLostTimer);
+    touchBlockLostTimer = null;
     if (!touchBlockConfirmed) {
         touchBlockConfirmed = true;
-        showMessage('The tablet ignores your fingers; swipes still change slides', MessageDuration.NORMAL);
+        showMessage(touchBlockLapsed ? 'The tablet ignores your fingers again' : 'The tablet ignores your fingers; swipes still change slides', MessageDuration.NORMAL);
+        touchBlockLapsed = false;
     }
+}
+
+// The gesture stream failed while the block was on. Once the server's
+// grace has passed without a new connection, the tablet reacts to the
+// fingers again: the page says so, and again when the block is back.
+function touchBlockLost() {
+    if (!touchBlockWanted || !touchBlockConfirmed || touchBlockLostTimer !== null) {
+        return;
+    }
+    touchBlockLostTimer = setTimeout(() => {
+        touchBlockLostTimer = null;
+        if (touchBlockWanted && touchBlockConfirmed) {
+            touchBlockConfirmed = false;
+            touchBlockLapsed = true;
+            showMessage('Connection to the tablet lost: it reacts to your fingers until the connection is back', MessageDuration.IMPORTANT);
+        }
+    }, TOUCH_BLOCK_GRACE_MS);
 }
 
 // The button and the I key.

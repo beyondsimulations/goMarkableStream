@@ -5,12 +5,19 @@ let authToken = null;
 // or 270). The Paper Pro and the Paper Pro Move name each swipe for it.
 let rotation = 0;
 // Whether the page asks the tablet to ignore the fingers (?block=1); the
-// server holds that only while this stream is open.
+// server holds that only while this stream is open. unblock: the block was
+// just turned off, so the next stream asks the server (?unblock=1) to give
+// the panel back at once rather than after its grace.
 let block = false;
+let unblock = false;
+// Names this page to the server (see pageClientId).
+let clientId = '';
 let running = false;
 let controller = null;
 // Time before the next attempt after the stream ends or fails; it doubles
-// up to 30 seconds and starts again at one once a stream opens.
+// up to 5 seconds (swipes should come back soon after a lost connection, and
+// an attempt costs the tablet next to nothing) and starts again at one once
+// a stream opens.
 let retryDelay = 1000;
 
 // The reMarkable 2 sends direction totals, which checkSwipeDirection names;
@@ -35,6 +42,7 @@ onmessage = (event) => {
 		case 'init':
 			authToken = event.data.authToken || null;
 			rotation = event.data.rotation || 0;
+			clientId = event.data.clientId || '';
 			running = true;
 			streamGestures();
 			break;
@@ -51,6 +59,7 @@ onmessage = (event) => {
 			// Reconnect, so the server takes the touch panel or gives it back.
 			if (data.block !== block) {
 				block = data.block;
+				unblock = !block;
 				if (controller) {
 					controller.abort();
 				}
@@ -86,12 +95,16 @@ async function streamGestures() {
 			}
 			if (!controller.signal.aborted) {
 				console.error('Gesture stream error:', e);
+				if (block) {
+					// The server lets go of the panel after its grace.
+					postMessage({ type: 'touchBlockLost' });
+				}
 			}
 		}
 		const renewal = block && Date.now() - opened > 5000;
 		if (running && !controller.signal.aborted && !renewal) {
 			await new Promise((resolve) => setTimeout(resolve, retryDelay));
-			retryDelay = Math.min(retryDelay * 2, 30000);
+			retryDelay = Math.min(retryDelay * 2, 5000);
 		}
 	}
 }
@@ -103,13 +116,22 @@ async function fetchStream(signal) {
 			'Authorization': `Bearer ${authToken}`
 		};
 	}
-	const response = await fetch('/gestures?rotation=' + rotation + (block ? '&block=1' : ''), fetchOptions);
+	let url = '/gestures?rotation=' + rotation + '&client=' + encodeURIComponent(clientId);
+	if (block) {
+		url += '&block=1';
+	} else if (unblock) {
+		url += '&unblock=1';
+	}
+	const response = await fetch(url, fetchOptions);
 	if (!response.ok) {
 		const error = new Error('HTTP ' + response.status);
 		error.status = response.status;
 		throw error;
 	}
 	retryDelay = 1000;
+	if (!block) {
+		unblock = false; // the server has it
+	}
 
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder('utf-8');
@@ -129,7 +151,7 @@ async function fetchStream(signal) {
 			try {
 				const json = JSON.parse(jsonStr);
 				if ('touchBlocked' in json) {
-					postMessage({ type: 'touchBlock', blocked: json.touchBlocked, error: json.error });
+					postMessage({ type: 'touchBlock', blocked: json.touchBlocked, error: json.error, elsewhere: json.elsewhere });
 					continue;
 				}
 				const swipe = json.swipe || LEGACY_SWIPES[checkSwipeDirection(json)];

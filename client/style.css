@@ -3127,6 +3127,30 @@ body.presenting {
     opacity: 1;
 }
 
+/* Five keys do not fit in one line on a phone: they wrap inside a card
+   that keeps the 16px side gutter, without the separators. */
+@media (max-width: 600px) {
+    .present-key-hint {
+        /* Both sides anchored: with left: 50% it could use half the width. */
+        left: 16px;
+        right: 16px;
+        transform: none;
+        width: fit-content;
+        margin-inline: auto;
+        height: auto;
+        box-sizing: border-box;
+        padding: 10px 14px;
+        flex-wrap: wrap;
+        justify-content: center;
+        row-gap: 8px;
+        border-radius: 18px;
+    }
+
+    .present-hint-sep {
+        display: none;
+    }
+}
+
 .present-key {
     display: flex;
     align-items: center;
