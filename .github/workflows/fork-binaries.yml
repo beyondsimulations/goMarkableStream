@@ -1,0 +1,73 @@
+name: Fork binaries
+
+# Builds the Paper Pro and Paper Pro Move binaries (without Tailscale) from
+# every push to main and puts them on the "latest-main" release, so the
+# newest build is always at
+#   https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-rmpp
+#   https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-RMMOVE
+# Each run also keeps the files as an artifact of the run.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-binaries
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/goMarkableStream-rmpp .
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -tags rmmove -ldflags="-s -w" -o dist/goMarkableStream-RMMOVE .
+          cd dist
+          sha256sum goMarkableStream-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Keep as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error
+
+      # The release is replaced on every run. Tags made with the run's own
+      # token start no other workflow, so goreleaser.yml stays quiet.
+      - name: Publish the latest-main release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short=$(git rev-parse --short HEAD)
+          {
+            echo "Built from ${{ github.sha }} on main."
+            echo
+            echo "- \`goMarkableStream-rmpp\`: reMarkable Paper Pro"
+            echo "- \`goMarkableStream-RMMOVE\`: reMarkable Paper Pro Move"
+            echo
+            echo "Both are linux/arm64, without Tailscale. SHA-256:"
+            echo
+            echo '```'
+            cat dist/SHA256SUMS
+            echo '```'
+          } > notes.md
+          gh release delete latest-main --cleanup-tag --yes || true
+          gh release create latest-main dist/* --target "${{ github.sha }}" \
+            --title "Latest build ($short)" --notes-file notes.md --latest

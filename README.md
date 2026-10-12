@@ -16,6 +16,8 @@
 >
 > Not checked on a device yet: the Paper Pro's touch panel is assumed to lie like the Move's, which was measured.
 >
+> **Binaries of this fork:** every change merged into `main` is built by GitHub Actions ([fork-binaries.yml](.github/workflows/fork-binaries.yml)) and published as the [Latest build](https://github.com/beyondsimulations/goMarkableStream/releases/tag/latest-main) release: [`goMarkableStream-rmpp`](https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-rmpp) for the Paper Pro and [`goMarkableStream-RMMOVE`](https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-RMMOVE) for the Paper Pro Move (linux/arm64, without Tailscale; the release notes list their SHA-256). The `download` subcommand fetches the upstream releases, not these.
+>
 > The MIT licence and Olivier Wulveryck's copyright stay as they are (see [License](#license)).
 
 [Screen recording 2026-02-04 11.24.44.webm](https://github.com/user-attachments/assets/facdf1c5-41b2-4b82-bb84-2dd169858a80)
