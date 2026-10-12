@@ -5,10 +5,12 @@ name: Fork binaries
 # "latest-main" pre-release, so the newest build is always at
 #   https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-rmpp
 #   https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-RMMOVE
-# A manual run on another branch builds without publishing.
+# A version tag (v1.0.0, pushed by a person) gets its own release with the
+# same files. A manual run on another branch builds without publishing.
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -58,7 +60,7 @@ jobs:
 
   publish:
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -69,17 +71,15 @@ jobs:
           name: binaries-${{ github.sha }}
           path: dist
 
-      # Updated in place, so the download links never go missing: the tag
-      # moves to this commit, the files are replaced, the notes rewritten.
-      # Tags moved with the run's own token start no other workflow, so
-      # goreleaser.yml stays quiet.
-      - name: Update the latest-main release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+      - name: Write the release notes
         run: |
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            source="${GITHUB_REF_NAME}"
+          else
+            source="main"
+          fi
           {
-            echo "Built from ${GITHUB_SHA} on main."
+            echo "Built from ${GITHUB_SHA} (${source})."
             echo
             echo "- \`goMarkableStream-rmpp\`: reMarkable Paper Pro"
             echo "- \`goMarkableStream-RMMOVE\`: reMarkable Paper Pro Move"
@@ -90,6 +90,31 @@ jobs:
             cat dist/SHA256SUMS
             echo '```'
           } > notes.md
+
+      # A version tag gets a release of its own, which becomes the
+      # repository's latest release. Run again, it replaces the files.
+      - name: Publish the version release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+            gh release edit "${GITHUB_REF_NAME}" --notes-file notes.md
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/* --verify-tag --title "${GITHUB_REF_NAME}" --notes-file notes.md
+          fi
+
+      # Updated in place, so the download links never go missing: the tag
+      # moves to this commit, the files are replaced, the notes rewritten.
+      # A tag moved with the run's own token starts no other workflow.
+      - name: Update the latest-main release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
           title="Latest build (${GITHUB_SHA::7})"
           if gh api "repos/${GH_REPO}/git/ref/tags/latest-main" > /dev/null 2>&1; then
             gh api -X PATCH "repos/${GH_REPO}/git/refs/tags/latest-main" -f sha="${GITHUB_SHA}" -F force=true > /dev/null

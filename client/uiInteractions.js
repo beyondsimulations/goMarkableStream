@@ -214,8 +214,10 @@ if (fullscreenButton) {
     fullscreenButton.addEventListener('click', toggleFullscreen);
 }
 
-// A presentation key (B, Z, I): only with a presentation, and not on browser
-// shortcuts such as Ctrl+B or on key repeat.
+// A presentation key (W, Z, I): only with a presentation, and not on browser
+// shortcuts such as Ctrl+W or on key repeat. These letters are free in
+// reveal.js and in Quarto's plugins, so a key means one thing wherever the
+// keyboard is.
 function isPresentationKey(e) {
     return Boolean(iFrame.getAttribute('src')) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat;
 }
@@ -242,7 +244,7 @@ document.addEventListener('keydown', function(e) {
             // Laser toggle
             document.getElementById('laserToggle').click();
             break;
-        case 'b':
+        case 'w':
             // Paper background toggle (ink only <-> white page)
             if (!isPresentationKey(e)) {
                 break;
@@ -411,6 +413,11 @@ function setContentOnTop(contentOnTop) {
 // The layer button and the Z key.
 function toggleLayerOrder() {
     setContentOnTop(!contentLayerOnTop);
+    if (contentLayerOnTop && !paperTransparent) {
+        // The white board hides the content until it is turned off.
+        showMessage('Content layer on top, hidden by the white board until you press W', MessageDuration.NORMAL);
+        return;
+    }
     showMessage(contentLayerOnTop ? 'Content layer on top' : 'Drawing layer on top', MessageDuration.QUICK);
 }
 
@@ -436,10 +443,25 @@ document.getElementById('switchOrderButton').addEventListener('click', toggleLay
 // while this page's gesture stream is open, so it ends with the page.
 let touchBlockWanted = false;
 let touchBlockConfirmed = false;
+// A lost connection is mentioned only when it lasts: a short drop is not
+// worth a notice, and the tablet keeps the block for a few seconds anyway.
+const TOUCH_BLOCK_LOST_NOTICE_MS = 5000;
+let touchBlockLostTimer = null;
+let touchBlockLapsed = false;
+// Turning the block off waits for the server's answer before saying that
+// the tablet reacts again: another page may still block it. Without an
+// answer in time, the page says what it can.
+const TOUCH_BLOCK_RELEASE_ANSWER_MS = 3000;
+let touchBlockReleaseTimer = null;
 
 function setTouchBlock(wanted) {
     touchBlockWanted = wanted;
     touchBlockConfirmed = false;
+    touchBlockLapsed = false;
+    clearTimeout(touchBlockLostTimer);
+    touchBlockLostTimer = null;
+    clearTimeout(touchBlockReleaseTimer);
+    touchBlockReleaseTimer = null;
     gestureWorker.postMessage({ type: 'block', block: wanted });
     const button = document.getElementById('touchBlockButton');
     button.classList.toggle('toggled', wanted);
@@ -447,8 +469,23 @@ function setTouchBlock(wanted) {
 }
 
 // The server's answer, sent each time the gesture stream opens while the
-// block is asked for: confirmed once, or turned off with the reason.
-function touchBlockAnswered(blocked, error) {
+// block is asked for: confirmed once, or turned off with the reason. To
+// turning the block off it answers released, or elsewhere when another
+// page still has it.
+function touchBlockAnswered(blocked, error, elsewhere, released) {
+    if (elsewhere || released) {
+        if (touchBlockWanted || touchBlockReleaseTimer === null) {
+            return; // not the answer to this page's last turning off
+        }
+        clearTimeout(touchBlockReleaseTimer);
+        touchBlockReleaseTimer = null;
+        if (elsewhere) {
+            showMessage('The tablet still ignores your fingers: another page has I on, or closed less than half a minute ago', MessageDuration.IMPORTANT);
+        } else {
+            showMessage('The tablet reacts to your fingers again', MessageDuration.QUICK);
+        }
+        return;
+    }
     if (!touchBlockWanted) {
         return; // an answer for a block already turned off
     }
@@ -457,17 +494,41 @@ function touchBlockAnswered(blocked, error) {
         showMessage('Could not block the tablet\'s touch' + (error ? ': ' + error : ''), MessageDuration.IMPORTANT);
         return;
     }
+    clearTimeout(touchBlockLostTimer);
+    touchBlockLostTimer = null;
     if (!touchBlockConfirmed) {
         touchBlockConfirmed = true;
-        showMessage('The tablet ignores your fingers; swipes still change slides', MessageDuration.NORMAL);
+        showMessage(touchBlockLapsed ? 'The tablet ignores your fingers again' : 'The tablet ignores your fingers; swipes still change slides', MessageDuration.NORMAL);
+        touchBlockLapsed = false;
     }
+}
+
+// The gesture stream failed while the block was on. The tablet lets go of
+// the block once it notices, which the page cannot see: if the connection
+// stays lost, the page says the tablet may react to fingers, and says so
+// again when the block is back.
+function touchBlockLost() {
+    if (!touchBlockWanted || !touchBlockConfirmed || touchBlockLostTimer !== null) {
+        return;
+    }
+    touchBlockLostTimer = setTimeout(() => {
+        touchBlockLostTimer = null;
+        if (touchBlockWanted && touchBlockConfirmed) {
+            touchBlockConfirmed = false;
+            touchBlockLapsed = true;
+            showMessage('Connection to the tablet lost: it may react to your fingers until the connection is back', MessageDuration.IMPORTANT);
+        }
+    }, TOUCH_BLOCK_LOST_NOTICE_MS);
 }
 
 // The button and the I key.
 function toggleTouchBlock() {
     setTouchBlock(!touchBlockWanted);
     if (!touchBlockWanted) {
-        showMessage('The tablet reacts to your fingers again', MessageDuration.QUICK);
+        touchBlockReleaseTimer = setTimeout(() => {
+            touchBlockReleaseTimer = null;
+            showMessage('Touch block off: the tablet reacts to your fingers once it gets the message', MessageDuration.NORMAL);
+        }, TOUCH_BLOCK_RELEASE_ANSWER_MS);
     }
 }
 

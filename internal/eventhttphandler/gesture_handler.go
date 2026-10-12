@@ -49,10 +49,13 @@ type swipeMessage struct {
 }
 
 // blockMessage answers ?block=1 first: whether xochitl now ignores the
-// fingers, and why not.
+// fingers, and why not. It answers ?unblock=1 with Released, or with
+// Elsewhere when another page still blocks them.
 type blockMessage struct {
 	TouchBlocked bool   `json:"touchBlocked"`
 	Error        string `json:"error,omitempty"`
+	Elsewhere    bool   `json:"elsewhere,omitempty"`
+	Released     bool   `json:"released,omitempty"`
 }
 
 type gesture struct {
@@ -150,18 +153,33 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// lasts; the swipes still reach this stream. The request ends after
 	// blockLease, between gestures, and the browser asks again at once, so
 	// a page that went away without closing its connection lets go.
+	// ?unblock=1, sent once when the page turns the block off, gives the
+	// panel back at once and says whether another page still blocks it.
+	// ?client= names the page.
+	query := r.URL.Query()
+	client := query.Get("client")
 	var lease <-chan time.Time
-	if r.URL.Query().Get("block") == "1" {
-		status := blockMessage{TouchBlocked: true}
-		if err := h.block.acquire(); err != nil {
+	var status *blockMessage
+	switch {
+	case query.Get("block") == "1":
+		status = &blockMessage{TouchBlocked: true}
+		if id, err := h.block.acquire(client); err != nil {
 			log.Printf("Touch: cannot block the touch panel: %v", err)
-			status = blockMessage{Error: err.Error()}
+			status = &blockMessage{Error: err.Error()}
 		} else {
-			defer h.block.release()
+			defer h.block.release(id)
 			leaseTimer := time.NewTimer(blockLease)
 			defer leaseTimer.Stop()
 			lease = leaseTimer.C
 		}
+	case query.Get("unblock") == "1":
+		if h.block.drop(client) {
+			status = &blockMessage{TouchBlocked: true, Elsewhere: true}
+		} else {
+			status = &blockMessage{Released: true}
+		}
+	}
+	if status != nil {
 		if err := enc.Encode(status); err != nil {
 			return
 		}
