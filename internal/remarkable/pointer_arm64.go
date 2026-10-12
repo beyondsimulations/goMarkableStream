@@ -49,8 +49,9 @@ func getFramePointer(pid string) (int64, error) {
 	}
 
 	for i, c := range candidates {
-		log.Printf("framebuffer candidate %d: addr=0x%x size=%d (chunk %d of region %x-%x, after card0: %v)",
-			i, c.addr, c.chunkSize, c.chunkIndex, c.region.start, c.region.end, c.region.afterCard0)
+		opaque, white := pageLikeness(mem, c, FramebufferStorageSizeBytes)
+		log.Printf("framebuffer candidate %d: addr=0x%x size=%d (chunk %d of region %x-%x, after card0: %v, lines after card0: %d, exact size: %v; looks like a page: %.0f%% opaque, %.0f%% white)",
+			i, c.addr, c.chunkSize, c.chunkIndex, c.region.start, c.region.end, c.region.afterCard0, c.region.card0Distance, c.exactSize, 100*opaque, 100*white)
 	}
 
 	choice, err := chooseCandidate(candidates, FramebufferCandidate)

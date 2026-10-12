@@ -41,12 +41,19 @@ firmware 3.28.0.169:
 - The tightly packed response remains 6,471,936 bytes, preserving the existing
   `/stream`, `/raw`, and `/screenshot` response formats.
 
-The buffer is found the same way as on the Paper Pro (see
+The buffer is found much as on the Paper Pro (see
 `internal/remarkable/fbscan.go`): by walking the malloc chunk headers of the
 anonymous regions of `xochitl` and picking the chunk that fits the stored
-frame, 960 x 1696 x 4 = 6,512,640 bytes. The candidates are logged at startup,
-and `RK_FB_CANDIDATE=<n>` forces one of them if the automatic choice shows the
-wrong picture.
+frame, 960 x 1696 x 4 = 6,512,640 bytes. Unlike on the Paper Pro, its region
+does not follow the last `/dev/dri/card0` mapping directly: on a Move measured
+on 2026-10-12, a thread stack and a malloc arena sat between them, six lines
+of `/proc/<pid>/maps`. So the Move's buffer is recognised by its exact size,
+the frame plus the 16-byte chunk header rounded up to a page (6,516,736
+bytes); a nearby buffer of 6,578,176 bytes is not taken.
+
+The candidates are logged at startup, each with a page check (the share of
+opaque and of near-white pixels in a sample), and `RK_FB_CANDIDATE=<n>`
+forces one of them if the automatic choice shows the wrong picture.
 
 The Move pen reports X in 0-6760 and Y in 0-11960. It uses the Paper Pro's
 portrait-native event transform.
