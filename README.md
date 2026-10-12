@@ -8,11 +8,11 @@
 > What is different here:
 > - **Paper Pro on firmware 3.25 and later:** the screen buffer is found by its size instead of its old position, so streaming starts again. If the picture is wrong, `RK_FB_CANDIDATE` picks another candidate (see [Device Configuration](#device-configuration)).
 > - **Paper Pro Move:** a separate `rmmove` build, based on Paul Bauriegel's work in [owulveryck/goMarkableStream#163](https://github.com/owulveryck/goMarkableStream/pull/163) (see [docs/paper-pro-move.md](docs/paper-pro-move.md)).
-> - **Presentation mode:** only the ink is drawn over the slides, `B` switches to a white board, and a small control bar appears only while the pointer moves (see [Presentation Mode](#presentation-mode)).
+> - **Presentation mode:** only the ink is drawn over the slides, `W` switches to a white board, and a small control bar appears only while the pointer moves (see [Presentation Mode](#presentation-mode)).
 > - **A new look:** the web page follows the BeyondSimulations Family design, in light and dark, and respects Reduce Motion.
 > - **Fixes:** status messages show while streaming, and the help and menu fit on a phone.
 >
-> - **Swipe gestures that follow the view:** on the Paper Pro and the Move a one-finger swipe is read as you see it, in portrait or, after pressing `R`, in landscape. Right to left is the next slide (see [Swipe Gestures](#swipe-gestures)).
+> - **Swipe gestures that follow the view:** on the Paper Pro and the Move a one-finger swipe is read as you see it, in portrait or, after pressing `R`, in landscape. Right to left moves to the next slide or bullet (see [Swipe Gestures](#swipe-gestures)).
 >
 > Not checked on a device yet: the Paper Pro's touch panel is assumed to lie like the Move's, which was measured.
 >
@@ -82,7 +82,7 @@ For older firmware versions:
 ### Interaction
 - **Laser Pointer**: Red laser pointer that follows pen hover position (toggle with `L` key).
 - **Gesture Support**: Swipe gestures for slide navigation, integrated with Reveal.js presentations.
-- **Keyboard Shortcuts**: `R` for rotation, `L` for laser pointer, and in presentation mode `B` for the paper background, `Z` for drawing or content on top and `I` to make the tablet ignore your fingers; `?` for help overlay.
+- **Keyboard Shortcuts**: `R` for rotation, `L` for laser pointer, and in presentation mode `W` for the white board, `Z` for drawing or content on top and `I` to make the tablet ignore your fingers; `?` for help overlay.
 - **Layer Control**: Toggle drawing layer above or below embedded content.
 
 ### Presentation Mode
@@ -312,9 +312,9 @@ This feature is ideal for enhancing presentations or educational content by allo
 - To use this feature, append `?present=https://url-of-the-embedded-file` to your streaming URL.
 - This action will embed your chosen presentation or video in the stream's background.
 - You can then annotate or draw on the reMarkable tablet, with your input appearing over the embedded content in the stream.
-- Only the ink is shown: the white of the tablet's page is rendered transparent. Press `B` to switch to the opaque white page and back, for example to write on a blank sheet. The white page also hides the embedded content, so the whole window becomes a white board.
+- Only the ink is shown: the white of the tablet's page is rendered transparent. Press `W` to switch to the opaque white page and back, for example to write on a blank sheet. The white page also hides the embedded content, so the whole window becomes a white board.
 - Press `Z` to put the embedded content on top of the drawing, for example to click a link or play a video in it, and again to put the drawing back on top. The shortcuts reach the page only while it has the keyboard: after clicking inside the embedded content, click outside it (the sidebar or the control bar) first.
-- Nothing else covers the slides while you present. Move the pointer to show a small control bar (connection, white board, laser, full screen); it fades out again once the pointer rests. A hint with the keys `B`, `L` and `F` appears the first time only, and a lost connection shows as a small label, or as a card with Try Again when the tablet stays unreachable.
+- Nothing else covers the slides while you present. Move the pointer to show a small control bar (connection, white board, laser, full screen); it fades out again once the pointer rests. A hint with the keys `W`, `Z`, `I`, `L` and `F` appears the first time only, and a lost connection shows as a small label, or as a card with Try Again when the tablet stays unreachable.
 
 ### Swipe Gestures
 
@@ -322,10 +322,10 @@ Swipe with one finger on the tablet to control a reveal.js presentation. A swipe
 
 | Swipe | Action |
 |---|---|
-| right to left | next slide |
-| left to right | previous slide |
-| diagonal, top right to bottom left | next slide |
-| diagonal, top left to bottom right | previous slide |
+| right to left | next slide or bullet |
+| left to right | previous slide or bullet |
+| diagonal, top right to bottom left | next slide or bullet |
+| diagonal, top left to bottom right | previous slide or bullet |
 | diagonal, bottom left to top right | drawing on top |
 | diagonal, bottom right to top left | content on top |
 

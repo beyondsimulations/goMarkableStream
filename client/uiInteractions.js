@@ -214,8 +214,10 @@ if (fullscreenButton) {
     fullscreenButton.addEventListener('click', toggleFullscreen);
 }
 
-// A presentation key (B, Z, I): only with a presentation, and not on browser
-// shortcuts such as Ctrl+B or on key repeat.
+// A presentation key (W, Z, I): only with a presentation, and not on browser
+// shortcuts such as Ctrl+W or on key repeat. These letters are free in
+// reveal.js and in Quarto's plugins, so a key means one thing wherever the
+// keyboard is.
 function isPresentationKey(e) {
     return Boolean(iFrame.getAttribute('src')) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat;
 }
@@ -242,7 +244,7 @@ document.addEventListener('keydown', function(e) {
             // Laser toggle
             document.getElementById('laserToggle').click();
             break;
-        case 'b':
+        case 'w':
             // Paper background toggle (ink only <-> white page)
             if (!isPresentationKey(e)) {
                 break;
@@ -411,6 +413,11 @@ function setContentOnTop(contentOnTop) {
 // The layer button and the Z key.
 function toggleLayerOrder() {
     setContentOnTop(!contentLayerOnTop);
+    if (contentLayerOnTop && !paperTransparent) {
+        // The white board hides the content until it is turned off.
+        showMessage('Content layer on top, hidden by the white board until you press W', MessageDuration.NORMAL);
+        return;
+    }
     showMessage(contentLayerOnTop ? 'Content layer on top' : 'Drawing layer on top', MessageDuration.QUICK);
 }
 
