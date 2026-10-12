@@ -154,6 +154,14 @@ function sendSlideCommand(method) {
 	document.getElementById('content').contentWindow.postMessage(JSON.stringify({ method }), '*');
 }
 
+// Chooses what is on top, over a presentation only: without one there is
+// nothing to put on top, and the choice would carry over to the next one.
+function swipeLayer(contentOnTop) {
+	if (iFrame.getAttribute('src')) {
+		setContentOnTop(contentOnTop);
+	}
+}
+
 // Swipes as the person holding the tablet sees them. Right to left is the
 // next slide, like turning a page on the tablet; the downward diagonals
 // follow their sideways part, the upward ones choose what is on top.
@@ -162,8 +170,8 @@ const SWIPE_ACTIONS = {
 	'swipe-down-left': () => sendSlideCommand('next'),
 	'swipe-right': () => sendSlideCommand('prev'),
 	'swipe-down-right': () => sendSlideCommand('prev'),
-	'swipe-up-right': () => setContentOnTop(false), // drawing on top
-	'swipe-up-left': () => setContentOnTop(true), // content on top
+	'swipe-up-right': () => swipeLayer(false), // drawing on top
+	'swipe-up-left': () => swipeLayer(true), // content on top
 };
 
 gestureWorker.onmessage = (event) => {
