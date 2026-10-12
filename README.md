@@ -3,6 +3,19 @@
 
 # goMarkableStream
 
+> **About this fork.** This is a personal fork of [owulveryck/goMarkableStream](https://github.com/owulveryck/goMarkableStream) by Olivier Wulveryck, tuned for the reMarkable Paper Pro and for presenting. It is not an official release: for the original, its releases and its support, see the upstream repository.
+>
+> What is different here:
+> - **Paper Pro on firmware 3.25 and later:** the screen buffer is found by its size instead of its old position, so streaming starts again. If the picture is wrong, `RK_FB_CANDIDATE` picks another candidate (see [Device Configuration](#device-configuration)).
+> - **Paper Pro Move:** a separate `rmmove` build, based on Paul Bauriegel's work in [owulveryck/goMarkableStream#163](https://github.com/owulveryck/goMarkableStream/pull/163) (see [docs/paper-pro-move.md](docs/paper-pro-move.md)).
+> - **Presentation mode:** only the ink is drawn over the slides, `B` switches to a white board, and a small control bar appears only while the pointer moves (see [Presentation Mode](#presentation-mode)).
+> - **A new look:** the web page follows the BeyondSimulations Family design, in light and dark, and respects Reduce Motion.
+> - **Fixes:** status messages show while streaming, and the help and menu fit on a phone.
+>
+> Not checked on a device yet: swipe gestures on the Paper Pro and the Move, which were tuned for the reMarkable 2.
+>
+> The MIT licence and Olivier Wulveryck's copyright stay as they are (see [License](#license)).
+
 [Screen recording 2026-02-04 11.24.44.webm](https://github.com/user-attachments/assets/facdf1c5-41b2-4b82-bb84-2dd169858a80)
 
 
