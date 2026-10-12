@@ -8,6 +8,7 @@ import (
 
 	"github.com/owulveryck/goMarkableStream/internal/events"
 	"github.com/owulveryck/goMarkableStream/internal/pubsub"
+	"github.com/owulveryck/goMarkableStream/internal/remarkable"
 )
 
 // SwipeDirection ...
@@ -20,16 +21,26 @@ const (
 	SwipeRight SwipeDirection = "Swipe Right"
 )
 
-// NewGestureHandler creates an event habdler that subscribes from the inputEvents
-func NewGestureHandler(inputEvents *pubsub.PubSub) *GestureHandler {
+// NewGestureHandler creates an event habdler that subscribes from the inputEvents.
+// With a touch geometry (Paper Pro, Paper Pro Move) it names each swipe as
+// the browser's view shows the tablet; without one (reMarkable 2) it sends
+// the direction totals and the browser names them.
+func NewGestureHandler(inputEvents *pubsub.PubSub, geometry *remarkable.TouchGeometry) *GestureHandler {
 	return &GestureHandler{
 		inputEventBus: inputEvents,
+		geometry:      geometry,
 	}
 }
 
 // GestureHandler is a http.Handler that detect touch gestures
 type GestureHandler struct {
 	inputEventBus *pubsub.PubSub
+	geometry      *remarkable.TouchGeometry
+}
+
+// swipeMessage is one named swipe, for example {"swipe": "swipe-left"}.
+type swipeMessage struct {
+	Swipe string `json:"swipe"`
 }
 
 type gesture struct {
@@ -113,9 +124,12 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		h.inputEventBus.Unsubscribe(eventC)
 	}()
+	// ?rotation= is how far the browser turns the tablet's portrait page.
+	rotation := parseViewRotation(r.URL.Query().Get("rotation"))
 	tick := time.NewTicker(gestureMaxInterval)
 	defer tick.Stop()
 	tracker := &swipeTracker{}
+	reader := &swipeReader{geometry: h.geometry}
 
 	enc := json.NewEncoder(w)
 	w.Header().Set("Content-Type", "application/x-ndjson")
@@ -125,10 +139,16 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-tick.C:
-			// TODO send last event
-			if tracker.sum() != 0 {
-				err := enc.Encode(&tracker.gesture)
-				if err != nil {
+			var message any
+			if h.geometry != nil {
+				if name := reader.name(rotation); name != "" {
+					message = swipeMessage{Swipe: name}
+				}
+			} else if tracker.sum() != 0 {
+				message = &tracker.gesture
+			}
+			if message != nil {
+				if err := enc.Encode(message); err != nil {
 					http.Error(w, "cannot send json encode the message "+err.Error(), http.StatusInternalServerError)
 					return
 				}
@@ -137,8 +157,13 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			tracker.reset()
+			reader.endGesture()
 		case event := <-eventC:
-			tracker.observe(event)
+			if h.geometry != nil {
+				reader.observe(event)
+			} else {
+				tracker.observe(event)
+			}
 			tick.Reset(gestureMaxInterval)
 		}
 	}

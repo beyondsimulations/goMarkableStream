@@ -143,37 +143,38 @@ eventWorker.postMessage({
 gestureWorker.postMessage({
 	type: 'init',
 	authToken: typeof getAuthToken === 'function' ? getAuthToken() : null,
+	rotation: viewRotation(),
 });
+
+// Tells the embedded reveal.js deck to move: 'right' is the next slide,
+// 'left' the previous one.
+function sendSlideCommand(method) {
+	document.getElementById('content').contentWindow.postMessage(JSON.stringify({ method }), '*');
+}
+
+// Swipes as the person holding the tablet sees them. Right to left is the
+// next slide, like turning a page on the tablet; the downward diagonals
+// follow their sideways part, the upward ones choose what is on top.
+const SWIPE_ACTIONS = {
+	'swipe-left': () => sendSlideCommand('right'),
+	'swipe-down-left': () => sendSlideCommand('right'),
+	'swipe-right': () => sendSlideCommand('left'),
+	'swipe-down-right': () => sendSlideCommand('left'),
+	'swipe-up-right': () => { iFrame.style.zIndex = 1; }, // drawing on top
+	'swipe-up-left': () => { iFrame.style.zIndex = 4; }, // content on top
+};
 
 gestureWorker.onmessage = (event) => {
 	const data = event.data;
 
 	switch (data.type) {
-		case 'gesture':
-
-			switch (event.data.value) {
-				case 'left':
-					document.getElementById('content').contentWindow.postMessage( JSON.stringify({ method: 'left' }), '*' );
-					break;
-				case 'right':
-					document.getElementById('content').contentWindow.postMessage( JSON.stringify({ method: 'right' }), '*' );
-					break;
-				case 'topleft-to-bottomright':
-					document.getElementById('content').contentWindow.postMessage( JSON.stringify({ method: 'right' }), '*' );
-					break;
-				case 'topright-to-bottomleft':
-					document.getElementById('content').contentWindow.postMessage( JSON.stringify({ method: 'left' }), '*' );
-					break;
-				case 'bottomright-to-topleft':
-					iFrame.style.zIndex = 1;
-					break;
-				case 'bottomleft-to-topright':
-					iFrame.style.zIndex = 4;
-					break;
-				default:
-					// Code to execute if none of the above cases match
+		case 'gesture': {
+			const action = SWIPE_ACTIONS[event.data.value];
+			if (action) {
+				action();
 			}
 			break;
+		}
 		case 'error':
 			console.error('Error from worker:', event.data.message);
 			break;

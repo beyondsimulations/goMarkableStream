@@ -10,6 +10,16 @@ if (DeviceModel === 'RemarkablePaperPro' || DeviceModel === 'RemarkablePaperProM
 }
 let flip = getBoolQueryParam('flip', defaultFlip);
 
+// How far, clockwise, the view turns the tablet's portrait page: the R key
+// turns it by 90 degrees, ?flip=true by 180. Swipes are read the same way.
+function viewRotation() {
+	return ((portrait ? 90 : 0) + (flip ? 180 : 0)) % 360;
+}
+
+// The Paper Pro and the Paper Pro Move read swipes for the view; the
+// reMarkable 2 does not.
+const swipesFollowView = DeviceModel === 'RemarkablePaperPro' || DeviceModel === 'RemarkablePaperProMove';
+
 let rate = parseInt(getQueryParamOrDefault('rate', '200'), 10);
 
 // Use BGRA format flag from server (Paper Pro or RM2 firmware 3.24+)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/owulveryck/goMarkableStream/internal/events"
 	"github.com/owulveryck/goMarkableStream/internal/pubsub"
+	"github.com/owulveryck/goMarkableStream/internal/remarkable"
 )
 
 // Multi-touch codes the log reports besides the two position axes.
@@ -45,6 +46,7 @@ func (a axisTrace) String() string {
 // the same way as for the browser, plus where each axis started and ended
 // and which fingers took part, so the gestures can be tuned per device.
 type gestureLog struct {
+	reader      *swipeReader // shared across gestures; nil on the reMarkable 2
 	tracker     swipeTracker
 	x, y        axisTrace // codeXAxis (54) and codeYAxis (53)
 	events      int
@@ -60,7 +62,11 @@ func (g *gestureLog) observe(event events.InputEventFromSource, slot int32, now 
 	}
 	g.events++
 	g.last = now
-	g.tracker.observe(event)
+	if g.reader != nil {
+		g.reader.observe(event)
+	} else {
+		g.tracker.observe(event)
+	}
 	switch event.Code {
 	case codeXAxis, codeYAxis:
 		if event.Code == codeXAxis {
@@ -83,10 +89,25 @@ func (g *gestureLog) String() string {
 	for s := g.slots; s != 0; s &= s - 1 {
 		slots = append(slots, fmt.Sprint(bits.TrailingZeros32(s)))
 	}
-	name, action := swipeSeenAs(&g.tracker.gesture)
-	return fmt.Sprintf("gesture: %d events in %v, %d touch-down(s), slots [%s] | code %d: %v | code %d: %v | sent left=%d right=%d up=%d down=%d | browser: %s (%s)",
+	line := fmt.Sprintf("gesture: %d events in %v, %d touch-down(s), slots [%s] | code %d: %v | code %d: %v",
 		g.events, g.last.Sub(g.start).Round(time.Millisecond), g.touchDowns, strings.Join(slots, " "),
-		codeXAxis, g.x, codeYAxis, g.y,
+		codeXAxis, g.x, codeYAxis, g.y)
+	if g.reader != nil {
+		// What a browser makes of it at each view rotation (the R key turns
+		// the view by 90 degrees).
+		dx, dy := g.reader.finger.pixels(g.reader.geometry)
+		seen := make([]string, 0, 4)
+		for _, rotation := range []int{0, 90, 180, 270} {
+			name := g.reader.name(rotation)
+			if name == "" {
+				name = "none"
+			}
+			seen = append(seen, fmt.Sprintf("%d°: %s", rotation, name))
+		}
+		return fmt.Sprintf("%s | first finger dx=%+.0f dy=%+.0f px | browser %s", line, dx, dy, strings.Join(seen, ", "))
+	}
+	name, action := swipeSeenAs(&g.tracker.gesture)
+	return fmt.Sprintf("%s | sent left=%d right=%d up=%d down=%d | browser: %s (%s)", line,
 		g.tracker.leftDistance, g.tracker.rightDistance, g.tracker.upDistance, g.tracker.downDistance,
 		name, action)
 }
@@ -103,8 +124,8 @@ type swipeRule struct {
 // swipeRules mirrors checkSwipeDirection (TestSwipeRulesMatchClient checks
 // it) and the actions in client/workersHandling.js, for the log only.
 var swipeRules = []swipeRule{
-	{name: "left", action: "previous slide", minLeft: 400, maxRight: 100, maxUp: 100, maxDown: 100},
-	{name: "right", action: "next slide", minRight: 400, maxLeft: 100, maxUp: 100, maxDown: 100},
+	{name: "left", action: "next slide", minLeft: 400, maxRight: 100, maxUp: 100, maxDown: 100},
+	{name: "right", action: "previous slide", minRight: 400, maxLeft: 100, maxUp: 100, maxDown: 100},
 	{name: "up", action: "nothing", minUp: 400, maxRight: 100, maxLeft: 100, maxDown: 100},
 	{name: "down", action: "nothing", minDown: 400, maxRight: 100, maxUp: 100, maxLeft: 100},
 	{name: "topright-to-bottomleft", action: "previous slide", minRight: 600, minDown: 600, maxUp: 50, maxLeft: 50},
@@ -135,7 +156,7 @@ func swipeSeenAs(g *gesture) (name, action string) {
 
 // LogGestures writes one log line per touch gesture until ctx ends. It runs
 // whether or not a browser is connected.
-func LogGestures(ctx context.Context, inputEvents *pubsub.PubSub) {
+func LogGestures(ctx context.Context, inputEvents *pubsub.PubSub, geometry *remarkable.TouchGeometry) {
 	touchSource := events.Touch
 	absType := uint16(events.EvAbs)
 	eventC := inputEvents.SubscribeWithFilter("gestureDebug", pubsub.EventFilter{
@@ -143,20 +164,27 @@ func LogGestures(ctx context.Context, inputEvents *pubsub.PubSub) {
 		Type:   &absType,
 	})
 	defer inputEvents.Unsubscribe(eventC)
-	logGestures(ctx, eventC, log.Print)
+	logGestures(ctx, eventC, geometry, log.Print)
 }
 
-func logGestures(ctx context.Context, eventC <-chan events.InputEventFromSource, logf func(...any)) {
+func logGestures(ctx context.Context, eventC <-chan events.InputEventFromSource, geometry *remarkable.TouchGeometry, logf func(...any)) {
 	quiet := time.NewTimer(gestureMaxInterval)
 	defer quiet.Stop()
 	// The kernel only sends ABS_MT_SLOT when the slot changes, so the
 	// current slot carries over from one gesture to the next.
 	var slot int32
-	current := &gestureLog{}
+	var reader *swipeReader
+	if geometry != nil {
+		reader = &swipeReader{geometry: geometry}
+	}
+	current := &gestureLog{reader: reader}
 	flush := func() {
 		if current.events > 0 {
-			logf(current)
-			current = &gestureLog{}
+			logf(current.String())
+			if reader != nil {
+				reader.endGesture()
+			}
+			current = &gestureLog{reader: reader}
 		}
 	}
 	for {
