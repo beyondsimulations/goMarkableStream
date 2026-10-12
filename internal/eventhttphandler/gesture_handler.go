@@ -67,6 +67,7 @@ const (
 type swipeTracker struct {
 	gesture
 	lastX, lastY int32
+	hasX, hasY   bool // 0 is a real position at the panel's edge
 }
 
 // observe adds one EV_ABS event. The first position on each axis only sets
@@ -74,7 +75,7 @@ type swipeTracker struct {
 func (t *swipeTracker) observe(event events.InputEventFromSource) {
 	switch event.Code {
 	case codeXAxis:
-		if t.lastX != 0 {
+		if t.hasX {
 			distance := event.Value - t.lastX
 			if distance < 0 {
 				t.rightDistance += -int64(distance)
@@ -82,9 +83,9 @@ func (t *swipeTracker) observe(event events.InputEventFromSource) {
 				t.leftDistance += int64(distance)
 			}
 		}
-		t.lastX = event.Value
+		t.lastX, t.hasX = event.Value, true
 	case codeYAxis:
-		if t.lastY != 0 {
+		if t.hasY {
 			distance := event.Value - t.lastY
 			if distance < 0 {
 				t.upDistance += -int64(distance)
@@ -92,14 +93,12 @@ func (t *swipeTracker) observe(event events.InputEventFromSource) {
 				t.downDistance += int64(distance)
 			}
 		}
-		t.lastY = event.Value
+		t.lastY, t.hasY = event.Value, true
 	}
 }
 
 func (t *swipeTracker) reset() {
-	t.gesture.reset()
-	t.lastX = 0
-	t.lastY = 0
+	*t = swipeTracker{}
 }
 
 // ServeHTTP implements http.Handler
