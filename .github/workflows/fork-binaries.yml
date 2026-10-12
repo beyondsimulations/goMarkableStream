@@ -1,0 +1,104 @@
+name: Fork binaries
+
+# Builds the Paper Pro and Paper Pro Move binaries (without Tailscale) and
+# keeps them as an artifact of the run. Pushes to main also put them on the
+# "latest-main" pre-release, so the newest build is always at
+#   https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-rmpp
+#   https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-RMMOVE
+# A manual run on another branch builds without publishing.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per branch at a time; a newer one waits, so a release update is
+# never cut off halfway.
+concurrency:
+  group: fork-binaries-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        run: go test ./...
+
+      # The Makefile's Paper Pro target builds with Tailscale; these two
+      # match the binaries this fork ships.
+      - name: Build
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o dist/goMarkableStream-rmpp .
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -tags rmmove -ldflags="-s -w" -o dist/goMarkableStream-RMMOVE .
+          cd dist
+          sha256sum goMarkableStream-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Keep as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ github.sha }}
+          path: dist/*
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch the binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries-${{ github.sha }}
+          path: dist
+
+      # Updated in place, so the download links never go missing: the tag
+      # moves to this commit, the files are replaced, the notes rewritten.
+      # Tags moved with the run's own token start no other workflow, so
+      # goreleaser.yml stays quiet.
+      - name: Update the latest-main release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "Built from ${GITHUB_SHA} on main."
+            echo
+            echo "- \`goMarkableStream-rmpp\`: reMarkable Paper Pro"
+            echo "- \`goMarkableStream-RMMOVE\`: reMarkable Paper Pro Move"
+            echo
+            echo "Both are linux/arm64, without Tailscale. SHA-256:"
+            echo
+            echo '```'
+            cat dist/SHA256SUMS
+            echo '```'
+          } > notes.md
+          title="Latest build (${GITHUB_SHA::7})"
+          if gh api "repos/${GH_REPO}/git/ref/tags/latest-main" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/${GH_REPO}/git/refs/tags/latest-main" -f sha="${GITHUB_SHA}" -F force=true > /dev/null
+          else
+            gh api -X POST "repos/${GH_REPO}/git/refs" -f ref=refs/tags/latest-main -f sha="${GITHUB_SHA}" > /dev/null
+          fi
+          if gh release view latest-main > /dev/null 2>&1; then
+            gh release upload latest-main dist/* --clobber
+            gh release edit latest-main --title "$title" --notes-file notes.md --prerelease
+          else
+            gh release create latest-main dist/* --verify-tag --title "$title" --notes-file notes.md --prerelease
+          fi
