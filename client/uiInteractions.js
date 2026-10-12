@@ -69,20 +69,8 @@ function loadSavedPreferences() {
         }
     }
 
-    // Layer order (only if layers menu is visible)
-    const savedLayerOrder = localStorage.getItem(STORAGE_KEYS.LAYER_ORDER);
-    if (savedLayerOrder !== null && document.getElementById('layersMenuItem').style.display !== 'none') {
-        const isContentOnTop = savedLayerOrder === 'content';
-        if (isContentOnTop) {
-            iFrame.style.zIndex = 4;
-        }
-        // Wait for updateLayerOrderUI to be defined
-        setTimeout(() => {
-            if (typeof updateLayerOrderUI === 'function') {
-                updateLayerOrderUI(isContentOnTop);
-            }
-        }, 200);
-    }
+    // The layer order is restored when a presentation starts
+    // (restoreLayerOrder, from window.onload).
 }
 
 // Save preference to localStorage
@@ -257,6 +245,14 @@ document.addEventListener('keydown', function(e) {
             setPaperTransparent(!paperTransparent);
             showMessage(paperTransparent ? 'Ink only (transparent paper)' : 'White page', MessageDuration.QUICK);
             break;
+        case 'd':
+            // Layer order toggle (drawing <-> content on top), presentation
+            // mode only, with the same guards as B
+            if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+                break;
+            }
+            toggleLayerOrder();
+            break;
         case 't':
             // Trail toggle
             const trailBtn = document.getElementById('trailToggle');
@@ -368,43 +364,60 @@ window.addEventListener("resize", resizeVisibleCanvas);
 resizeVisibleCanvas();
 
 // Helper function to update layer order UI
-function updateLayerOrderUI(isContentOnTop) {
+function updateLayerOrderUI(contentOnTop) {
     const layerOrderText = document.getElementById('layerOrderText');
     const layerOrderStatus = document.getElementById('layerOrderStatus');
     const switchBtn = document.getElementById('switchOrderButton');
 
-    if (isContentOnTop) {
+    if (contentOnTop) {
         if (layerOrderText) layerOrderText.textContent = 'Content on Top';
         if (layerOrderStatus) layerOrderStatus.textContent = 'Content on Top';
         switchBtn.classList.add('toggled');
         switchBtn.setAttribute('aria-pressed', 'true');
-        switchBtn.setAttribute('aria-label', 'Content layer is on top. Click to switch to drawing on top');
+        switchBtn.setAttribute('aria-label', 'Content layer is on top. Click or press D to switch to drawing on top');
     } else {
         if (layerOrderText) layerOrderText.textContent = 'Drawing on Top';
         if (layerOrderStatus) layerOrderStatus.textContent = 'Drawing on Top';
         switchBtn.classList.remove('toggled');
         switchBtn.setAttribute('aria-pressed', 'false');
-        switchBtn.setAttribute('aria-label', 'Drawing layer is on top. Click to switch to content on top');
+        switchBtn.setAttribute('aria-label', 'Drawing layer is on top. Click or press D to switch to content on top');
+    }
+}
+
+// Whether the embedded content is on top of the drawing. The stylesheet puts
+// the drawing on top until one of the functions below changes it.
+let contentLayerOnTop = false;
+
+// Puts the embedded content or the drawing on top, and keeps the menu and the
+// saved preference in step (the button, the D key and the swipes).
+function setContentOnTop(contentOnTop) {
+    contentLayerOnTop = contentOnTop;
+    iFrame.style.zIndex = contentOnTop ? 4 : 1;
+    savePreference(STORAGE_KEYS.LAYER_ORDER, contentOnTop ? 'content' : 'drawing');
+    updateLayerOrderUI(contentOnTop);
+}
+
+// The layer button and the D key.
+function toggleLayerOrder() {
+    setContentOnTop(!contentLayerOnTop);
+    showMessage(contentLayerOnTop ? 'Content layer on top' : 'Drawing layer on top', MessageDuration.QUICK);
+}
+
+// Brings back the order chosen last time when a presentation starts.
+function restoreLayerOrder() {
+    let saved = null;
+    try {
+        saved = localStorage.getItem(STORAGE_KEYS.LAYER_ORDER);
+    } catch (e) {
+        // Storage blocked: start with the drawing on top.
+    }
+    if (saved === 'content') {
+        setContentOnTop(true);
     }
 }
 
 // Mask drawing button functionality
-document.getElementById('switchOrderButton').addEventListener('click', function () {
-    // Swap z-index values
-    const isLayerSwitched = iFrame.style.zIndex != 1;
-
-    if (isLayerSwitched) {
-        iFrame.style.zIndex = 1;
-        savePreference(STORAGE_KEYS.LAYER_ORDER, 'drawing');
-        updateLayerOrderUI(false);
-        showMessage('Drawing layer on top', MessageDuration.QUICK);
-    } else {
-        iFrame.style.zIndex = 4;
-        savePreference(STORAGE_KEYS.LAYER_ORDER, 'content');
-        updateLayerOrderUI(true);
-        showMessage('Content layer on top', MessageDuration.QUICK);
-    }
-});
+document.getElementById('switchOrderButton').addEventListener('click', toggleLayerOrder);
 
 // Laser toggle button functionality
 document.getElementById('laserToggle').addEventListener('click', function () {

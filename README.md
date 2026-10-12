@@ -80,7 +80,7 @@ For older firmware versions:
 ### Interaction
 - **Laser Pointer**: Red laser pointer that follows pen hover position (toggle with `L` key).
 - **Gesture Support**: Swipe gestures for slide navigation, integrated with Reveal.js presentations.
-- **Keyboard Shortcuts**: `R` for rotation, `L` for laser pointer, `B` for the paper background in presentation mode, `?` for help overlay.
+- **Keyboard Shortcuts**: `R` for rotation, `L` for laser pointer, `B` for the paper background and `D` for drawing or content on top in presentation mode, `?` for help overlay.
 - **Layer Control**: Toggle drawing layer above or below embedded content.
 
 ### Presentation Mode
@@ -311,11 +311,12 @@ This feature is ideal for enhancing presentations or educational content by allo
 - This action will embed your chosen presentation or video in the stream's background.
 - You can then annotate or draw on the reMarkable tablet, with your input appearing over the embedded content in the stream.
 - Only the ink is shown: the white of the tablet's page is rendered transparent. Press `B` to switch to the opaque white page and back, for example to write on a blank sheet. The white page also hides the embedded content, so the whole window becomes a white board.
+- Press `D` to put the embedded content on top of the drawing, for example to click a link or play a video in it, and again to put the drawing back on top. The shortcuts reach the page only while it has the keyboard: after clicking inside the embedded content, click outside it (the sidebar or the control bar) first.
 - Nothing else covers the slides while you present. Move the pointer to show a small control bar (connection, white board, laser, full screen); it fades out again once the pointer rests. A hint with the keys `B`, `L` and `F` appears the first time only, and a lost connection shows as a small label, or as a card with Try Again when the tablet stays unreachable.
 
 ### Swipe Gestures
 
-Swipe with one finger on the tablet to control a reveal.js presentation:
+Swipe with one finger on the tablet to control a reveal.js presentation. A swipe moves one step in reading order, like the space bar: the next fragment or slide, including the slides inside a vertical stack (a chapter in a Quarto deck).
 
 | Swipe | Action |
 |---|---|
