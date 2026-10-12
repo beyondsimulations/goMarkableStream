@@ -22,4 +22,8 @@ const (
 
 	PenInputDevice   = "/dev/input/event2"
 	TouchInputDevice = "/dev/input/event3"
+	// FramebufferExactSizeFirst ranks a buffer of exactly the screen's
+	// size before one merely next to card0: the Move's buffer is not next
+	// to it, and has exactly that size.
+	FramebufferExactSizeFirst = true
 )

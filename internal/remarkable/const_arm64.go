@@ -24,4 +24,7 @@ const (
 
 	PenInputDevice   = "/dev/input/event2"
 	TouchInputDevice = "/dev/input/event3"
+	// FramebufferExactSizeFirst ranks a buffer of exactly the screen's
+	// size before one next to card0 (Paper Pro Move only).
+	FramebufferExactSizeFirst = false
 )

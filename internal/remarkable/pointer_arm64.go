@@ -42,7 +42,7 @@ func getFramePointer(pid string) (int64, error) {
 	}
 	defer mem.Close()
 
-	candidates := findFramebufferCandidates(mem, regions, FramebufferStorageSizeBytes)
+	candidates := findFramebufferCandidates(mem, regions, FramebufferStorageSizeBytes, FramebufferExactSizeFirst)
 	if len(candidates) == 0 {
 		return 0, fmt.Errorf("failed to calculate frame pointer: no memory chunk of at least %d bytes found in %d regions of xochitl (pid %s)",
 			FramebufferStorageSizeBytes, len(regions), pid)
@@ -51,7 +51,7 @@ func getFramePointer(pid string) (int64, error) {
 	for i, c := range candidates {
 		opaque, white := pageLikeness(mem, c, FramebufferStorageSizeBytes)
 		log.Printf("framebuffer candidate %d: addr=0x%x size=%d (chunk %d of region %x-%x, after card0: %v, lines after card0: %d, exact size: %v; looks like a page: %.0f%% opaque, %.0f%% white)",
-			i, c.addr, c.chunkSize, c.chunkIndex, c.region.start, c.region.end, c.region.afterCard0, c.region.card0Distance, c.exactSize, 100*opaque, 100*white)
+			i, c.addr, c.chunkSize, c.chunkIndex, c.region.start, c.region.end, c.region.afterCard0(), c.region.card0Distance, c.exactSize, 100*opaque, 100*white)
 	}
 
 	choice, err := chooseCandidate(candidates, FramebufferCandidate)

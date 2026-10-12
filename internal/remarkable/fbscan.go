@@ -35,25 +35,32 @@ import (
 // the original algorithm did, so layouts it handled resolve to the same
 // address.
 //
-// On the Paper Pro Move a thread stack and a malloc arena sit between the
-// last card0 mapping and the buffer's region (six lines of maps, observed
-// 2026-10-12), so no chunk follows card0 directly. There the buffer is
-// recognised by its size instead: a chunk of exactly the screen image plus
-// its header, rounded up to a page, in a region after a card0 mapping. That
-// size is a fingerprint however far the region lands; a buffer that only
-// roughly fits is not taken.
+// A chunk of exactly the screen image, as glibc sizes it (data, header and
+// rounding to a page), in a region up to maxCard0Distance lines after a
+// card0 mapping, may be picked too. On the Paper Pro Move it comes first: a
+// thread stack and a malloc arena sit between the last card0 mapping and its
+// buffer (six lines of maps, observed 2026-10-12), and the buffer has exactly
+// that size, so a chunk that only roughly fits must not win by position. On
+// the Paper Pro the buffer is larger than the image, so adjacency comes first
+// and a screen-sized copy elsewhere cannot win.
 
 const (
 	chunkHeaderSize   = 16
 	chunkFlagMask     = 0x7
 	chunkFlagIsMapped = 0x2
 	pageSize          = 4096
+
+	// maxCard0Distance bounds how many lines after a card0 mapping a chunk
+	// of the exact size is still taken (six on the Paper Pro Move).
+	maxCard0Distance = 16
 )
 
-// exactChunkSize is the size glibc gives an mmapped chunk holding exactly
-// frameSize bytes: the data plus its header, rounded up to a page.
+// exactChunkSize is the size glibc gives an mmapped chunk for a malloc of
+// frameSize bytes: request2size (the request plus 8, aligned to 16), plus 8,
+// rounded up to a page.
 func exactChunkSize(frameSize int64) int64 {
-	return (frameSize + chunkHeaderSize + pageSize - 1) / pageSize * pageSize
+	nb := (frameSize + 8 + 15) &^ 15
+	return (nb + 8 + pageSize - 1) / pageSize * pageSize
 }
 
 // FramebufferCandidate forces the n-th framebuffer candidate listed in the
@@ -65,15 +72,16 @@ type memRegion struct {
 	start, end int64
 	perms      string
 	path       string
-	// afterCard0 is true when the previous line of the maps file is a
-	// /dev/dri/card0 mapping.
-	afterCard0 bool
 	// card0Distance counts the lines since the last /dev/dri/card0 mapping
-	// above this one (1 when afterCard0), or 0 when there is none.
+	// above this one, or 0 when there is none.
 	card0Distance int
 }
 
 func (r memRegion) size() int64 { return r.end - r.start }
+
+// afterCard0 reports whether the previous line of the maps file is a
+// /dev/dri/card0 mapping.
+func (r memRegion) afterCard0() bool { return r.card0Distance == 1 }
 
 // anonymousReadable reports whether the region is private anonymous memory we
 // are allowed to read.
@@ -87,9 +95,9 @@ type fbCandidate struct {
 	chunkSize  int64
 	region     memRegion
 	chunkIndex int
-	// exactSize marks a chunk of exactly the screen image plus its header,
-	// rounded up to a page, somewhere after a card0 mapping; like one right
-	// after card0, it may be picked automatically.
+	// exactSize marks a chunk of exactly the screen image's size (see
+	// exactChunkSize) up to maxCard0Distance lines after a card0 mapping;
+	// like one right after card0, it may be picked automatically.
 	exactSize bool
 }
 
@@ -125,7 +133,6 @@ func parseMaps(r io.Reader) ([]memRegion, error) {
 			end:           int64(end),
 			perms:         fields[1],
 			path:          path,
-			afterCard0:    distance == 1,
 			card0Distance: distance,
 		})
 		if strings.Contains(path, "/dev/dri/card0") {
@@ -175,13 +182,16 @@ func walkChunks(mem io.ReaderAt, region memRegion, frameSize int64) []fbCandidat
 }
 
 // findFramebufferCandidates returns every chunk that could be the screen
-// buffer, best guess first. Chunks in regions that follow a /dev/dri/card0
-// mapping come first, the region after the last card0 mapping leading and
-// chunks in walk order within a region, like the original algorithm. Chunks of
-// exactly the screen's size further after a card0 mapping come next, the
-// closest first. Other chunks follow, the one closest in size to frameSize
-// first.
-func findFramebufferCandidates(mem io.ReaderAt, regions []memRegion, frameSize int64) []fbCandidate {
+// buffer, best guess first, in three tiers:
+//   - chunks in regions right after a /dev/dri/card0 mapping, the region
+//     after the last card0 mapping leading and chunks in walk order within a
+//     region, like the original algorithm;
+//   - chunks of exactly the screen image's size a few lines after a card0
+//     mapping, the closest first;
+//   - other chunks, the one closest in size to frameSize first.
+//
+// With exactFirst (Paper Pro Move) the exact-size tier comes first.
+func findFramebufferCandidates(mem io.ReaderAt, regions []memRegion, frameSize int64, exactFirst bool) []fbCandidate {
 	var near, exactFit, far []fbCandidate
 	exact := exactChunkSize(frameSize)
 	for i := len(regions) - 1; i >= 0; i-- {
@@ -190,12 +200,13 @@ func findFramebufferCandidates(mem io.ReaderAt, regions []memRegion, frameSize i
 			continue
 		}
 		for _, c := range walkChunks(mem, region, frameSize) {
+			d := region.card0Distance
+			c.exactSize = c.chunkSize == exact && d >= 1 && d <= maxCard0Distance
 			switch {
-			case region.afterCard0:
-				near = append(near, c)
-			case c.chunkSize == exact && region.card0Distance > 0:
-				c.exactSize = true
+			case c.exactSize && (exactFirst || !region.afterCard0()):
 				exactFit = append(exactFit, c)
+			case region.afterCard0():
+				near = append(near, c)
 			default:
 				far = append(far, c)
 			}
@@ -210,6 +221,9 @@ func findFramebufferCandidates(mem io.ReaderAt, regions []memRegion, frameSize i
 		}
 		return far[i].addr < far[j].addr
 	})
+	if exactFirst {
+		return append(append(exactFit, near...), far...)
+	}
 	return append(append(near, exactFit...), far...)
 }
 
@@ -228,7 +242,7 @@ func chooseCandidate(candidates []fbCandidate, override int) (int, error) {
 		}
 		return override, nil
 	}
-	if !candidates[0].region.afterCard0 && !candidates[0].exactSize {
+	if !candidates[0].region.afterCard0() && !candidates[0].exactSize {
 		return 0, fmt.Errorf("no framebuffer candidate next to a /dev/dri/card0 mapping or of exactly the screen's size (xochitl may still be starting); "+
 			"%d candidate(s) elsewhere, set RK_FB_CANDIDATE to use one", len(candidates))
 	}
@@ -236,25 +250,28 @@ func chooseCandidate(candidates []fbCandidate, override int) (int, error) {
 }
 
 // pageLikeness samples the image in a candidate chunk (BGRA, after the
-// 16-byte header): the share of opaque pixels and of near-white ones. A
-// screen buffer is opaque and, on e-ink, mostly white; other memory is not.
-// For the startup log, so a wrong pick shows; it does not choose.
+// 16-byte header): the share of opaque pixels and of near-white ones, read
+// as short runs at 32 spots. A screen buffer is opaque and, on e-ink, mostly
+// white; other memory is not. For the startup log, so a wrong pick shows; it
+// does not choose.
 func pageLikeness(mem io.ReaderAt, c fbCandidate, frameSize int64) (opaque, white float64) {
-	const samples = 512
-	pixel := make([]byte, 4)
+	const spots, run = 32, 16 // pixels per spot
+	buf := make([]byte, run*4)
 	var read, opaqueN, whiteN int
 	pixels := frameSize / 4
-	for i := int64(0); i < samples; i++ {
-		off := c.addr + chunkHeaderSize + (i*pixels/samples)*4
-		if _, err := mem.ReadAt(pixel, off); err != nil {
+	for i := int64(0); i < spots; i++ {
+		first := i * (pixels - run) / (spots - 1)
+		if _, err := mem.ReadAt(buf, c.addr+chunkHeaderSize+first*4); err != nil {
 			continue
 		}
-		read++
-		if pixel[3] == 0xff {
-			opaqueN++
-		}
-		if pixel[0] >= 0xf0 && pixel[1] >= 0xf0 && pixel[2] >= 0xf0 {
-			whiteN++
+		for p := 0; p < len(buf); p += 4 {
+			read++
+			if buf[p+3] == 0xff {
+				opaqueN++
+			}
+			if buf[p] >= 0xf0 && buf[p+1] >= 0xf0 && buf[p+2] >= 0xf0 {
+				whiteN++
+			}
 		}
 	}
 	if read == 0 {
