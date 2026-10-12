@@ -1,6 +1,7 @@
 let height;
 let width;
 let rate;
+let clientId = '';
 let authToken = null;
 
 // Delta decoding state
@@ -28,6 +29,7 @@ onmessage = (event) => {
 			height = event.data.height;
 			width = event.data.width;
 			rate = event.data.rate;
+			clientId = event.data.clientId || '';
 			authToken = event.data.authToken || null;
 			initiateStream();
 			break;
@@ -54,7 +56,7 @@ async function initiateStream() {
 			};
 		}
 
-		const response = await fetch('/stream?rate=' + rate, fetchOptions);
+		const response = await fetch('/stream?rate=' + rate + '&client=' + encodeURIComponent(clientId), fetchOptions);
 
 		// Handle rate limiting (429)
 		if (response.status === 429) {
