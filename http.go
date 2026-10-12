@@ -59,7 +59,11 @@ func setMuxer(eventPublisher *pubsub.PubSub, tm *TailscaleManager, restartCh cha
 
 	wsHandler := eventhttphandler.NewEventHandler(eventPublisher)
 	mux.Handle("/events", wsHandler)
-	gestureHandler := eventhttphandler.NewGestureHandler(eventPublisher)
+	touchGeometry, err := remarkable.LoadTouchGeometry()
+	if err != nil {
+		log.Printf("Touch gestures: %v (keeping the reMarkable 2 directions)", err)
+	}
+	gestureHandler := eventhttphandler.NewGestureHandler(eventPublisher, touchGeometry)
 	mux.Handle("/gestures", gestureHandler)
 
 	screenshotHandler := stream.NewScreenshotHandler(file, pointerAddr)

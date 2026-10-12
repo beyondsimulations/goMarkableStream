@@ -12,7 +12,9 @@
 > - **A new look:** the web page follows the BeyondSimulations Family design, in light and dark, and respects Reduce Motion.
 > - **Fixes:** status messages show while streaming, and the help and menu fit on a phone.
 >
-> Not checked on a device yet: swipe gestures on the Paper Pro and the Move, which were tuned for the reMarkable 2.
+> - **Swipe gestures that follow the view:** on the Paper Pro and the Move a one-finger swipe is read as you see it, in portrait or, after pressing `R`, in landscape. Right to left is the next slide (see [Swipe Gestures](#swipe-gestures)).
+>
+> Not checked on a device yet: the Paper Pro's touch panel is assumed to lie like the Move's, which was measured.
 >
 > The MIT licence and Olivier Wulveryck's copyright stay as they are (see [License](#license)).
 
@@ -237,7 +239,7 @@ Configure the application via environment variables:
 - `RK_DEV_MODE`: (True/False, default: `false`) Enable or disable developer mode.
 - `RK_DELTA_THRESHOLD`: (Float, default: `0.30`) Change ratio threshold (0.0-1.0) above which a full frame is sent instead of delta.
 - `RK_FB_CANDIDATE`: (Integer, default: `-1` = automatic, Paper Pro and Paper Pro Move only) Forces the n-th framebuffer candidate listed in the startup log, in case the automatic choice shows the wrong picture. Meant for diagnosis: the numbering can change when xochitl restarts.
-- `RK_DEBUG_GESTURES`: (True/False, default: `false`) Logs the touch panel's axes at startup and one line per finger swipe: where it started and ended, the distances sent to the browser, and what the browser makes of it (for example `right (next slide)`). Meant for tuning the swipe gestures on a device.
+- `RK_DEBUG_GESTURES`: (True/False, default: `false`) Logs the touch panel's axes at startup and one line per finger swipe: where it started and ended, and what the browser makes of it at each view rotation (for example `0°: swipe-left, 90°: swipe-down`). Meant for tuning the swipe gestures on a device.
 
 ### Tailscale Configuration
 
@@ -310,6 +312,21 @@ This feature is ideal for enhancing presentations or educational content by allo
 - You can then annotate or draw on the reMarkable tablet, with your input appearing over the embedded content in the stream.
 - Only the ink is shown: the white of the tablet's page is rendered transparent. Press `B` to switch to the opaque white page and back, for example to write on a blank sheet. The white page also hides the embedded content, so the whole window becomes a white board.
 - Nothing else covers the slides while you present. Move the pointer to show a small control bar (connection, white board, laser, full screen); it fades out again once the pointer rests. A hint with the keys `B`, `L` and `F` appears the first time only, and a lost connection shows as a small label, or as a card with Try Again when the tablet stays unreachable.
+
+### Swipe Gestures
+
+Swipe with one finger on the tablet to control a reveal.js presentation:
+
+| Swipe | Action |
+|---|---|
+| right to left | next slide |
+| left to right | previous slide |
+| diagonal, top right to bottom left | next slide |
+| diagonal, top left to bottom right | previous slide |
+| diagonal, bottom left to top right | drawing on top |
+| diagonal, bottom right to top left | content on top |
+
+On the Paper Pro and the Paper Pro Move, swipes are read as the browser shows the tablet. Holding the tablet in landscape with its top edge on the right, press `R` (the picture turns with it); with the top edge on the left, add `&flip=true` to the URL as well. Touches with two fingers are ignored. The reMarkable 2 keeps its original swipe detection, with right to left as the next slide.
 
 ### Usage Example
 

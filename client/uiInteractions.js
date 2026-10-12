@@ -23,6 +23,7 @@ function loadSavedPreferences() {
             rotateBtn.classList.toggle('toggled', portrait);
             rotateBtn.setAttribute('aria-pressed', portrait.toString());
             eventWorker.postMessage({ type: 'portrait', portrait: portrait });
+            gestureWorker.postMessage({ type: 'rotation', rotation: viewRotation() });
             resizeVisibleCanvas();
             redrawScene(portrait, 1);
         }
@@ -309,6 +310,7 @@ document.getElementById('rotate').addEventListener('click', function () {
     this.classList.toggle('toggled');
     this.setAttribute('aria-pressed', portrait.toString());
     eventWorker.postMessage({ type: 'portrait', portrait: portrait });
+    gestureWorker.postMessage({ type: 'rotation', rotation: viewRotation() });
     resizeVisibleCanvas();
     redrawScene(portrait, 1);
 

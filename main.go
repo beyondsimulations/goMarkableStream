@@ -234,7 +234,11 @@ func main() {
 	eventScanner.StartAndPublish(ctx, eventPublisher)
 	if c.DebugGestures {
 		log.Print(remarkable.DescribeTouchDevice())
-		go eventhttphandler.LogGestures(ctx, eventPublisher)
+		geometry, err := remarkable.LoadTouchGeometry()
+		if err != nil {
+			log.Printf("Touch gestures: %v", err)
+		}
+		go eventhttphandler.LogGestures(ctx, eventPublisher, geometry)
 	}
 
 	// Channel to signal Tailscale listener restart
