@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 
@@ -76,6 +77,28 @@ func TestEventScannerClose(t *testing.T) {
 }
 
 // fileExists checks if a file exists
+// GrabTouch passes the kernel's answer on, and leaves the file's read
+// deadlines working: a pipe is no input device, so the grab fails with
+// ENOTTY, and a read still times out instead of blocking.
+func TestGrabTouchKeepsReadDeadlines(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	defer w.Close()
+	scanner := &EventScanner{touch: r}
+	if err := scanner.GrabTouch(true); err != syscall.ENOTTY {
+		t.Fatalf("grab on a pipe: %v, want ENOTTY", err)
+	}
+	if err := r.SetReadDeadline(time.Now().Add(50 * time.Millisecond)); err != nil {
+		t.Fatalf("read deadline after the grab: %v", err)
+	}
+	if _, err := r.Read(make([]byte, 1)); !os.IsTimeout(err) {
+		t.Fatalf("read after the grab: %v, want a timeout", err)
+	}
+}
+
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil

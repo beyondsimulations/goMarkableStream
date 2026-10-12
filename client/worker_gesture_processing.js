@@ -4,6 +4,9 @@ let authToken = null;
 // How far, clockwise, the page turns the tablet's portrait view (0, 90, 180
 // or 270). The Paper Pro and the Paper Pro Move name each swipe for it.
 let rotation = 0;
+// Whether the page asks the tablet to ignore the fingers (?block=1); the
+// server holds that only while this stream is open.
+let block = false;
 let running = false;
 let controller = null;
 // Time before the next attempt after the stream ends or fails; it doubles
@@ -44,6 +47,15 @@ onmessage = (event) => {
 				}
 			}
 			break;
+		case 'block':
+			// Reconnect, so the server takes the touch panel or gives it back.
+			if (data.block !== block) {
+				block = data.block;
+				if (controller) {
+					controller.abort();
+				}
+			}
+			break;
 		case 'terminate':
 			console.log("terminating worker");
 			running = false;
@@ -55,9 +67,9 @@ onmessage = (event) => {
 	}
 };
 
-// Keeps the gesture stream open: again at once after a rotation change, and
-// after a growing pause when the stream ends or fails. A refused sign-in
-// stops it, since the same token would be refused again.
+// Keeps the gesture stream open: again at once after a rotation or block
+// change, and after a growing pause when the stream ends or fails. A refused
+// sign-in stops it, since the same token would be refused again.
 async function streamGestures() {
 	while (running) {
 		controller = new AbortController();
@@ -87,7 +99,7 @@ async function fetchStream(signal) {
 			'Authorization': `Bearer ${authToken}`
 		};
 	}
-	const response = await fetch('/gestures?rotation=' + rotation, fetchOptions);
+	const response = await fetch('/gestures?rotation=' + rotation + (block ? '&block=1' : ''), fetchOptions);
 	if (!response.ok) {
 		const error = new Error('HTTP ' + response.status);
 		error.status = response.status;
@@ -112,6 +124,10 @@ async function fetchStream(signal) {
 
 			try {
 				const json = JSON.parse(jsonStr);
+				if ('touchBlocked' in json) {
+					postMessage({ type: 'touchBlock', blocked: json.touchBlocked, error: json.error });
+					continue;
+				}
 				const swipe = json.swipe || LEGACY_SWIPES[checkSwipeDirection(json)];
 				if (swipe) {
 					postMessage({ type: 'gesture', value: swipe });

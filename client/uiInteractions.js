@@ -245,13 +245,21 @@ document.addEventListener('keydown', function(e) {
             setPaperTransparent(!paperTransparent);
             showMessage(paperTransparent ? 'Ink only (transparent paper)' : 'White page', MessageDuration.QUICK);
             break;
-        case 'd':
+        case 'z':
             // Layer order toggle (drawing <-> content on top), presentation
             // mode only, with the same guards as B
             if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
                 break;
             }
             toggleLayerOrder();
+            break;
+        case 'i':
+            // The tablet ignores the fingers (or reacts again), presentation
+            // mode only, with the same guards as B
+            if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+                break;
+            }
+            setTouchBlock(!touchBlockWanted);
             break;
         case 't':
             // Trail toggle
@@ -374,13 +382,13 @@ function updateLayerOrderUI(contentOnTop) {
         if (layerOrderStatus) layerOrderStatus.textContent = 'Content on Top';
         switchBtn.classList.add('toggled');
         switchBtn.setAttribute('aria-pressed', 'true');
-        switchBtn.setAttribute('aria-label', 'Content layer is on top. Click or press D to switch to drawing on top');
+        switchBtn.setAttribute('aria-label', 'Content layer is on top. Click or press Z to switch to drawing on top');
     } else {
         if (layerOrderText) layerOrderText.textContent = 'Drawing on Top';
         if (layerOrderStatus) layerOrderStatus.textContent = 'Drawing on Top';
         switchBtn.classList.remove('toggled');
         switchBtn.setAttribute('aria-pressed', 'false');
-        switchBtn.setAttribute('aria-label', 'Drawing layer is on top. Click or press D to switch to content on top');
+        switchBtn.setAttribute('aria-label', 'Drawing layer is on top. Click or press Z to switch to content on top');
     }
 }
 
@@ -389,7 +397,7 @@ function updateLayerOrderUI(contentOnTop) {
 let contentLayerOnTop = false;
 
 // Puts the embedded content or the drawing on top, and keeps the menu and the
-// saved preference in step (the button, the D key and the swipes).
+// saved preference in step (the button, the Z key and the swipes).
 function setContentOnTop(contentOnTop) {
     contentLayerOnTop = contentOnTop;
     iFrame.style.zIndex = contentOnTop ? 4 : 1;
@@ -397,7 +405,7 @@ function setContentOnTop(contentOnTop) {
     updateLayerOrderUI(contentOnTop);
 }
 
-// The layer button and the D key.
+// The layer button and the Z key.
 function toggleLayerOrder() {
     setContentOnTop(!contentLayerOnTop);
     showMessage(contentLayerOnTop ? 'Content layer on top' : 'Drawing layer on top', MessageDuration.QUICK);
@@ -418,6 +426,48 @@ function restoreLayerOrder() {
 
 // Mask drawing button functionality
 document.getElementById('switchOrderButton').addEventListener('click', toggleLayerOrder);
+
+// Whether this page asks the tablet to ignore the fingers, so a swipe that
+// changes the slide does not also turn the notebook's page (I key), and
+// whether the tablet has said yes since. The server holds the block only
+// while this page's gesture stream is open, so it ends with the page.
+let touchBlockWanted = false;
+let touchBlockConfirmed = false;
+
+function setTouchBlock(wanted) {
+    touchBlockWanted = wanted;
+    touchBlockConfirmed = false;
+    gestureWorker.postMessage({ type: 'block', block: wanted });
+    const button = document.getElementById('touchBlockButton');
+    button.classList.toggle('toggled', wanted);
+    button.setAttribute('aria-pressed', String(wanted));
+    if (!wanted) {
+        showMessage('The tablet reacts to your fingers again', MessageDuration.QUICK);
+    }
+}
+
+// The server's answer, sent each time the gesture stream opens while the
+// block is asked for: confirmed once, or turned off with the reason.
+function touchBlockAnswered(blocked, error) {
+    if (!touchBlockWanted) {
+        return; // an answer for a block already turned off
+    }
+    if (!blocked) {
+        touchBlockWanted = false;
+        gestureWorker.postMessage({ type: 'block', block: false });
+        const button = document.getElementById('touchBlockButton');
+        button.classList.remove('toggled');
+        button.setAttribute('aria-pressed', 'false');
+        showMessage('Could not block the tablet\'s touch' + (error ? ': ' + error : ''), MessageDuration.IMPORTANT);
+        return;
+    }
+    if (!touchBlockConfirmed) {
+        touchBlockConfirmed = true;
+        showMessage('The tablet ignores your fingers; swipes still change slides', MessageDuration.NORMAL);
+    }
+}
+
+document.getElementById('touchBlockButton').addEventListener('click', () => setTouchBlock(!touchBlockWanted));
 
 // Laser toggle button functionality
 document.getElementById('laserToggle').addEventListener('click', function () {

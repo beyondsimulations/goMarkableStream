@@ -3,6 +3,7 @@
 package remarkable
 
 import (
+	"errors"
 	"os"
 	"time"
 
@@ -20,6 +21,11 @@ type EventScanner struct {
 // NewEventScanner ...
 func NewEventScanner() *EventScanner {
 	return &EventScanner{}
+}
+
+// GrabTouch is only available on the tablet.
+func (e *EventScanner) GrabTouch(bool) error {
+	return errors.New("blocking the touch panel needs a reMarkable")
 }
 
 // StartAndPublish the event scanner and feed the EventC on movement. use the context to end the routine

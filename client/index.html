@@ -42,14 +42,26 @@
 						</button>
 					</li>
 					<li id="layersMenuItem" style="display: none;">
-						<button id="switchOrderButton" class="apple-button" aria-label="Toggle layer order: drawing or content on top (press D)" aria-pressed="false">
+						<button id="switchOrderButton" class="apple-button" aria-label="Toggle layer order: drawing or content on top (press Z)" aria-pressed="false">
 							<svg class="button-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
 								<path fill="currentColor" d="M12 16L6 10H9V4H15V10H18L12 16M12 18L18 12H15V6H9V12H6L12 18M3 20H21V22H3V20M12 2L21 9H15V15H9V9H3L12 2Z"/>
 							</svg>
 							<span id="layerOrderText">Drawing on Top</span>
-							<span class="menu-shortcut" aria-hidden="true">D</span>
-							<div class="button-tooltip">Toggle layer order <kbd>D</kbd>
+							<span class="menu-shortcut" aria-hidden="true">Z</span>
+							<div class="button-tooltip">Toggle layer order <kbd>Z</kbd>
 Currently: <span id="layerOrderStatus">Drawing on Top</span></div>
+						</button>
+					</li>
+					<li id="touchBlockMenuItem" style="display: none;">
+						<button id="touchBlockButton" class="apple-button" aria-label="Block the tablet's touch: the tablet ignores your fingers, swipes still change slides (press I)" aria-pressed="false">
+							<svg class="button-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+								<circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>
+								<circle cx="12" cy="12" r="7"/>
+								<path d="M4 4l16 16"/>
+							</svg>
+							<span>Block Tablet Touch</span>
+							<span class="menu-shortcut" aria-hidden="true">I</span>
+							<div class="button-tooltip">The tablet ignores your fingers; swipes still change slides <kbd>I</kbd></div>
 						</button>
 					</li>
 					<li>
@@ -255,8 +267,12 @@ Currently: <span id="layerOrderStatus">Drawing on Top</span></div>
 							<span>Presentation mode: toggle paper background (ink only / white board)</span>
 						</div>
 						<div class="help-item">
-							<kbd>D</kbd>
+							<kbd>Z</kbd>
 							<span>Presentation mode: drawing or content on top</span>
+						</div>
+						<div class="help-item">
+							<kbd>I</kbd>
+							<span>Presentation mode: the tablet ignores your fingers (no page turns); swipes still change slides</span>
 						</div>
 						<div class="help-item">
 							<div class="help-keys"><kbd>H</kbd> or <kbd>S</kbd></div>

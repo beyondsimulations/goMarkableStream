@@ -185,6 +185,9 @@ gestureWorker.onmessage = (event) => {
 			}
 			break;
 		}
+		case 'touchBlock':
+			touchBlockAnswered(data.blocked, data.error);
+			break;
 		case 'error':
 			console.error('Error from worker:', event.data.message);
 			break;
