@@ -1,6 +1,7 @@
 // Reconnection state
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
+// About half an hour of attempts, at most 15 s apart.
+const MAX_RECONNECT_ATTEMPTS = 120;
 let reconnectTimeout = null;
 let isReconnecting = false;
 // Refusals in a row (429: another connection holds the stream).
@@ -13,10 +14,27 @@ let rateLimitedRetries = 0;
 const streamClientId = Array.from(crypto.getRandomValues(new Uint8Array(16)),
 	(b) => b.toString(16).padStart(2, '0')).join('');
 
+// Exponential backoff: 1s for attempt 0, doubling up to capMs.
+function backoffDelay(attempt, capMs) {
+	return Math.min(Math.pow(2, attempt) * 1000, capMs);
+}
+
 // Calculate reconnection delay with exponential backoff (2s, 4s, 8s, then
 // every 15s)
 function getReconnectDelay() {
-	return Math.min(Math.pow(2, reconnectAttempts) * 1000, 15000);
+	return backoffDelay(reconnectAttempts, 15000);
+}
+
+// Stops streaming: the worker and any attempt waiting to start one (the
+// Funnel toggle frees the stream for public viewers).
+function stopStreamWorker() {
+	clearTimeout(reconnectTimeout);
+	reconnectTimeout = null;
+	reconnectAttempts = 0;
+	rateLimitedRetries = 0;
+	isReconnecting = false;
+	hideReconnectBanner();
+	streamWorker.terminate();
 }
 
 // Starts a fresh stream worker. The old one is ended first: its fetch would
@@ -36,7 +54,7 @@ function restartStreamWorker() {
 function retryRateLimited() {
 	isReconnecting = true;
 	hideReconnectBanner();
-	const delay = Math.min(Math.pow(2, rateLimitedRetries) * 1000, 10000);
+	const delay = backoffDelay(rateLimitedRetries, 10000);
 	rateLimitedRetries++;
 	clearTimeout(reconnectTimeout);
 	reconnectTimeout = setTimeout(restartStreamWorker, delay);

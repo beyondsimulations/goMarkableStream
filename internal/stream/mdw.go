@@ -29,6 +29,9 @@ var (
 	// not have noticed is gone, instead of being refused.
 	holderClient string
 	holderCancel func()
+	// reservedFor keeps the stream for a page taking over its own old
+	// request, so another page cannot slip in while the old one ends.
+	reservedFor string
 
 	// takeoverWait bounds how long a page waits for its old request to end.
 	takeoverWait = 5 * time.Second
@@ -52,9 +55,12 @@ func CancelActiveStreams() {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// Cancel existing streams
+	// Cancel existing streams, failing a write stuck on a dead connection
 	if streamCancel != nil {
 		streamCancel()
+	}
+	if holderCancel != nil {
+		holderCancel()
 	}
 
 	// Create new context for future streams
@@ -67,14 +73,20 @@ func CancelActiveStreams() {
 func ThrottlingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		client := r.URL.Query().Get("client")
-		debug.Log("Throttle: connection from %s, activeWriters=%d", r.RemoteAddr, activeWriters)
 		mu.Lock()
-		if activeWriters >= maxWriters && client != "" && client == holderClient && holderCancel != nil {
+		debug.Log("Throttle: connection from %s, activeWriters=%d", r.RemoteAddr, activeWriters)
+		if activeWriters >= maxWriters && client != "" && client == holderClient && holderCancel != nil && reservedFor == "" {
 			log.Printf("Stream: %s opened the stream again, ending its previous connection", r.RemoteAddr)
+			reservedFor = client
 			holderCancel()
-			waitForWriters(takeoverWait)
+			waitForWriters(r.Context(), takeoverWait)
+			reservedFor = ""
 		}
-		if activeWriters >= maxWriters {
+		if r.Context().Err() != nil {
+			mu.Unlock()
+			return // gave up waiting
+		}
+		if activeWriters >= maxWriters || (reservedFor != "" && reservedFor != client) {
 			mu.Unlock()
 			debug.Log("Throttle: too many requests, rejecting (%s)", r.RemoteAddr)
 			// If too many requests, send a 429 status code
@@ -106,7 +118,9 @@ func ThrottlingMiddleware(next http.Handler) http.Handler {
 			activeWriters--
 			holderClient, holderCancel = "", nil
 			debug.Log("Throttle: request completed, activeWriters=%d (%s)", activeWriters, r.RemoteAddr)
-			if activeWriters == 0 && onIdleCallback != nil {
+			// Not between a page's old request and its new one: the new one
+			// would allocate again what the callback frees.
+			if activeWriters == 0 && reservedFor == "" && onIdleCallback != nil {
 				onIdleCallback()
 			}
 			cond.Broadcast() // Notify waiting goroutines
@@ -130,17 +144,20 @@ func ThrottlingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// waitForWriters waits, with mu held, until the stream is free or limit has
-// passed.
-func waitForWriters(limit time.Duration) {
+// waitForWriters waits, with mu held, until the stream is free, limit has
+// passed or the waiting request has ended.
+func waitForWriters(ctx context.Context, limit time.Duration) {
 	deadline := time.Now().Add(limit)
-	wake := time.AfterFunc(limit, func() {
+	broadcast := func() {
 		mu.Lock()
 		cond.Broadcast()
 		mu.Unlock()
-	})
+	}
+	wake := time.AfterFunc(limit, broadcast)
 	defer wake.Stop()
-	for activeWriters >= maxWriters && time.Now().Before(deadline) {
+	stopOnEnd := context.AfterFunc(ctx, broadcast)
+	defer stopOnEnd()
+	for activeWriters >= maxWriters && time.Now().Before(deadline) && ctx.Err() == nil {
 		cond.Wait()
 	}
 }

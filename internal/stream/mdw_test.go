@@ -217,3 +217,31 @@ func TestThrottleReleasesAfterPanic(t *testing.T) {
 		t.Fatalf("after a panic: status %d, want 200", rec.Code)
 	}
 }
+
+// A takeover request that ends while it waits (its worker was replaced)
+// stops waiting and does not take the stream.
+func TestThrottleTakeoverStopsWhenItsRequestEnds(t *testing.T) {
+	release := make(chan struct{})
+	started := make(chan string, 2)
+	_, cancelOld, oldDone := openStream("page-a", func(w http.ResponseWriter, r *http.Request) {
+		started <- "old"
+		<-release // ignores its context
+	})
+	defer cancelOld()
+	<-started
+
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(20*time.Millisecond, cancel)
+	begin := time.Now()
+	ThrottlingMiddleware(untilEnded(started)).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/stream?client=page-a", nil).WithContext(ctx))
+	if waited := time.Since(begin); waited > time.Second {
+		t.Fatalf("waited %v after its request ended", waited)
+	}
+	select {
+	case got := <-started:
+		t.Fatalf("the ended request was served (%s)", got)
+	default:
+	}
+	close(release)
+	waitClosed(t, oldDone, "the old request")
+}

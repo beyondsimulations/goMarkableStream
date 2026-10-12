@@ -27,8 +27,9 @@ var (
 	penLiftCooldown = 300 * time.Millisecond
 
 	// frameWriteTimeout bounds writing one frame, so a dead connection is
-	// noticed (generous: a full frame is zstd-compressed and small).
-	frameWriteTimeout = 30 * time.Second
+	// noticed. Generous for slow links: a page's own new request replaces
+	// its dead one at once, so recovering does not wait for it.
+	frameWriteTimeout = 2 * time.Minute
 )
 
 var rawFrameBuffer = sync.Pool{
@@ -239,12 +240,14 @@ func (h *StreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			cooldownActive = false
 		case <-ticker.C:
 			if writing {
-				// Ended meanwhile (select picks among ready cases at random):
-				// a new deadline would undo the one that ended a stuck write.
+				// Deadline first, then the check: a takeover cancels and then
+				// sets a deadline of now, so either this sees the cancel or
+				// that deadline replaces this one (select picks among ready
+				// cases at random, so the request may have ended meanwhile).
+				_ = rc.SetWriteDeadline(time.Now().Add(frameWriteTimeout))
 				if r.Context().Err() != nil {
 					return
 				}
-				_ = rc.SetWriteDeadline(time.Now().Add(frameWriteTimeout))
 				next := rate * time.Millisecond
 				if frameSize := h.fetchAndSendDeltaAsync(w, asyncReader); frameSize > 0 {
 					next = adaptRate(frameSize, rate*time.Millisecond)

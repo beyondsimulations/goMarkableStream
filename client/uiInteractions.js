@@ -538,7 +538,7 @@ document.getElementById('funnelButton').addEventListener('click', async function
 
         // If enabling Funnel, stop local stream first to free the connection
         if (newState) {
-            streamWorker.postMessage({ type: 'terminate' });
+            stopStreamWorker();
             updateConnectionStatus(ConnectionState.PAUSED);
             showMessage('Setting up public sharing...', MessageDuration.NORMAL);
         } else {
@@ -672,8 +672,7 @@ document.getElementById('funnelButton').addEventListener('click', async function
             updateConnectionStatus(ConnectionState.CONNECTING);
 
             // Recreate and reinitialize stream worker
-            streamWorker = new Worker('worker_stream_processing.js');
-            initStreamWorker();
+            restartStreamWorker();
             showMessage('Public sharing is off. Resuming the local stream', MessageDuration.NORMAL);
         }
     } catch (error) {
