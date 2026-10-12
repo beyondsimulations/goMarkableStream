@@ -3,6 +3,7 @@ package remarkable
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -69,7 +70,7 @@ func TestParseMaps(t *testing.T) {
 	if big.start != 0xffffa03b3000 || big.end != 0xffffa17e0000 {
 		t.Errorf("wrong bounds: %x-%x", big.start, big.end)
 	}
-	if !big.afterCard0 || !big.anonymousReadable() {
+	if !big.afterCard0() || !big.anonymousReadable() {
 		t.Errorf("21 MB region should be anonymous, readable and after card0: %+v", big)
 	}
 	// The region is exactly two small chunks plus the screen chunk.
@@ -80,7 +81,7 @@ func TestParseMaps(t *testing.T) {
 	if guard.anonymousReadable() {
 		t.Errorf("guard page must not be considered readable: %+v", guard)
 	}
-	if !guard.afterCard0 {
+	if !guard.afterCard0() {
 		t.Errorf("guard page follows the last card0 mapping")
 	}
 }
@@ -103,7 +104,7 @@ func TestFindFramebufferFW327(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			mem := fakeMem{}
 			mem.putChunks(base, l.sizes...)
-			got := findFramebufferCandidates(mem, regions, rmppFrameSize)
+			got := findFramebufferCandidates(mem, regions, rmppFrameSize, false)
 			if len(got) != 1 {
 				t.Fatalf("got %d candidates, want 1: %+v", len(got), got)
 			}
@@ -129,7 +130,7 @@ ffff845f0000-ffff84600000 ---p 00000000 00:00 0
 	mem.putChunks(0xffff7e720000, chunkSmall, chunkScreen)
 	mem.putChunks(0xffff841cf000, 4329472)
 
-	got := findFramebufferCandidates(mem, regions, rmppFrameSize)
+	got := findFramebufferCandidates(mem, regions, rmppFrameSize, false)
 	if len(got) != 1 {
 		t.Fatalf("got %d candidates, want 1: %+v", len(got), got)
 	}
@@ -148,7 +149,7 @@ ffff829e0000-ffff829f0000 ---p 00000000 00:00 0
 	mem := fakeMem{}
 	mem.putChunks(0xffff8157d000, chunkSmall, chunkTiny, chunkSmall, chunkScreen)
 
-	got := findFramebufferCandidates(mem, regions, rmppFrameSize)
+	got := findFramebufferCandidates(mem, regions, rmppFrameSize, false)
 	if len(got) != 1 {
 		t.Fatalf("got %d candidates, want 1: %+v", len(got), got)
 	}
@@ -169,7 +170,7 @@ ffff201ad000-ffff22000000 rw-p 00000000 00:00 0
 	mem.putChunks(0xffff10000000, chunkScreen)
 	mem.putChunks(0xffff201ad000, chunkScreen)
 
-	got := findFramebufferCandidates(mem, regions, rmppFrameSize)
+	got := findFramebufferCandidates(mem, regions, rmppFrameSize, false)
 	if len(got) != 2 {
 		t.Fatalf("got %d candidates, want 2", len(got))
 	}
@@ -190,7 +191,7 @@ ffff201ad000-ffff22000000 rw-p 00000000 00:00 0
 	mem.putChunks(0xffff101ad000, chunkScreen)
 	mem.putChunks(0xffff201ad000, chunkSmall, chunkScreen+pageSize)
 
-	got := findFramebufferCandidates(mem, regions, rmppFrameSize)
+	got := findFramebufferCandidates(mem, regions, rmppFrameSize, false)
 	if len(got) != 2 {
 		t.Fatalf("got %d candidates, want 2", len(got))
 	}
@@ -200,8 +201,9 @@ ffff201ad000-ffff22000000 rw-p 00000000 00:00 0
 }
 
 func TestChooseCandidate(t *testing.T) {
-	near := fbCandidate{addr: 1, region: memRegion{afterCard0: true}}
+	near := fbCandidate{addr: 1, region: memRegion{card0Distance: 1}}
 	far := fbCandidate{addr: 2}
+	exact := fbCandidate{addr: 3, exactSize: true}
 
 	tests := map[string]struct {
 		candidates []fbCandidate
@@ -211,6 +213,7 @@ func TestChooseCandidate(t *testing.T) {
 	}{
 		"automatic takes the first":        {[]fbCandidate{near, far}, -1, 0, false},
 		"automatic refuses a far buffer":   {[]fbCandidate{far}, -1, 0, true},
+		"automatic takes an exact size":    {[]fbCandidate{exact, far}, -1, 0, false},
 		"override may pick a far buffer":   {[]fbCandidate{far}, 0, 0, false},
 		"override picks by index":          {[]fbCandidate{near, far}, 1, 1, false},
 		"override out of range":            {[]fbCandidate{near, far}, 2, 0, true},
@@ -286,25 +289,24 @@ func TestFindFramebufferMove(t *testing.T) {
 ffff201ad000-ffff22000000 rw-p 00000000 00:00 0
 `)
 	const base int64 = 0xffff201ad000
-	// The stored frame plus the 16-byte chunk header, rounded up to a page.
-	const chunkMove = (moveStorageSizeBytes/pageSize + 1) * pageSize
+	chunkMove := exactChunkSize(moveStorageSizeBytes)
 
 	mem := fakeMem{}
 	mem.putChunks(base, chunkSmall, chunkMove)
-	got := findFramebufferCandidates(mem, regions, moveStorageSizeBytes)
+	got := findFramebufferCandidates(mem, regions, moveStorageSizeBytes, true)
 	if len(got) != 1 {
 		t.Fatalf("got %d candidates, want 1: %+v", len(got), got)
 	}
 	if got[0].addr != base+chunkSmall || got[0].chunkSize != chunkMove {
 		t.Errorf("got addr=%x size=%d, want addr=%x size=%d", got[0].addr, got[0].chunkSize, base+chunkSmall, chunkMove)
 	}
-	if c := findFramebufferCandidates(mem, regions, rmppFrameSize); len(c) != 0 {
+	if c := findFramebufferCandidates(mem, regions, rmppFrameSize, false); len(c) != 0 {
 		t.Errorf("Paper Pro search matched the Move buffer: %+v", c)
 	}
 
 	ppMem := fakeMem{}
 	ppMem.putChunks(base, chunkSmall, chunkScreen)
-	if c := findFramebufferCandidates(ppMem, regions, moveStorageSizeBytes); len(c) != 0 {
+	if c := findFramebufferCandidates(ppMem, regions, moveStorageSizeBytes, true); len(c) != 0 {
 		t.Errorf("Move search matched the Paper Pro buffer: %+v", c)
 	}
 }
@@ -333,5 +335,174 @@ func TestWalkChunksStopsSafely(t *testing.T) {
 				t.Errorf("expected no candidate, got %+v", got)
 			}
 		})
+	}
+}
+
+// Tail of /proc/[pid]/maps on a Paper Pro Move (2026-10-12): the last card0
+// mapping is followed by a thread stack and a malloc arena; the screen
+// buffer is the second chunk of the region six lines further, and a slightly
+// larger buffer sits far away.
+const mapsMove = `ffff6f404000-ffff6f533000 rw-s 00000000 00:06 109                        /dev/dri/card0
+ffff6f533000-ffff6f662000 rw-s 00000000 00:06 109                        /dev/dri/card0
+ffff6f662000-ffff6f7f0000 rw-p 00000000 00:00 0
+ffff6f7f0000-ffff6f800000 ---p 00000000 00:00 0
+ffff6f800000-ffff70000000 rw-p 00000000 00:00 0
+ffff70000000-ffff70058000 rw-p 00000000 00:00 0
+ffff70058000-ffff74000000 ---p 00000000 00:00 0
+ffff7402b000-ffff747f0000 rw-p 00000000 00:00 0
+ffff747f0000-ffff74800000 ---p 00000000 00:00 0
+ffff74800000-ffff75000000 rw-p 00000000 00:00 0
+ffff79427000-ffff79a6d000 rw-p 00000000 00:00 0
+`
+
+func TestFindFramebufferMoveLayout(t *testing.T) {
+	regions := mustParse(t, mapsMove)
+	if d := regions[7].card0Distance; d != 6 {
+		t.Fatalf("buffer region is %d lines after card0, want 6", d)
+	}
+	if !regions[2].afterCard0() || regions[7].afterCard0() {
+		t.Fatalf("afterCard0 = %v / %v, want true / false", regions[2].afterCard0(), regions[7].afterCard0())
+	}
+
+	// The chunk sizes the Move reported: candidate 0 is chunk 1 of its
+	// region, candidate 1 fills a region of its own.
+	mem := fakeMem{}
+	mem.putChunks(0xffff7402b000, 0x18e000, 6516736)
+	mem.putChunks(0xffff79427000, 6578176)
+	if got := exactChunkSize(moveStorageSizeBytes); got != 6516736 {
+		t.Fatalf("exact chunk size = %d, want 6516736", got)
+	}
+
+	got := findFramebufferCandidates(mem, regions, moveStorageSizeBytes, true)
+	if len(got) != 2 || got[0].addr != 0xffff741b9000 || !got[0].exactSize || got[1].addr != 0xffff79427000 || got[1].exactSize {
+		t.Fatalf("candidates = %+v", got)
+	}
+	if choice, err := chooseCandidate(got, -1); err != nil || choice != 0 {
+		t.Fatalf("choice = %d, %v; want 0", choice, err)
+	}
+}
+
+// byteMem emulates readable memory starting at base.
+type byteMem struct {
+	base int64
+	data []byte
+}
+
+func (m byteMem) ReadAt(p []byte, off int64) (int, error) {
+	i := off - m.base
+	if i < 0 || i+int64(len(p)) > int64(len(m.data)) {
+		return 0, errors.New("input/output error")
+	}
+	return copy(p, m.data[i:]), nil
+}
+
+func TestPageLikeness(t *testing.T) {
+	const frame = 64 * 1024
+	page := make([]byte, chunkHeaderSize+frame)
+	for i := chunkHeaderSize; i < len(page); i += 4 {
+		page[i], page[i+1], page[i+2], page[i+3] = 0xff, 0xff, 0xff, 0xff // white
+	}
+	for i := chunkHeaderSize; i < chunkHeaderSize+frame/4; i += 4 {
+		page[i], page[i+1], page[i+2] = 0, 0, 0 // a quarter of black ink
+	}
+	opaque, white := pageLikeness(byteMem{base: 0x1000, data: page}, fbCandidate{addr: 0x1000}, frame)
+	if opaque != 1 || white < 0.74 || white > 0.76 {
+		t.Fatalf("page: opaque %.2f, white %.2f; want 1 and 0.75", opaque, white)
+	}
+
+	noise := make([]byte, chunkHeaderSize+frame)
+	for i := range noise {
+		noise[i] = byte(i * 7)
+	}
+	if opaque, _ := pageLikeness(byteMem{base: 0x1000, data: noise}, fbCandidate{addr: 0x1000}, frame); opaque > 0.1 {
+		t.Fatalf("noise looks %.2f opaque", opaque)
+	}
+}
+
+// Before xochitl maps its display (no card0 line above), even a buffer of
+// exactly the screen's size is not picked automatically.
+func TestExactSizeNeedsCard0Above(t *testing.T) {
+	regions := mustParse(t, `ffff7402b000-ffff747f0000 rw-p 00000000 00:00 0
+`)
+	mem := fakeMem{}
+	mem.putChunks(0xffff7402b000, 0x18e000, 6516736)
+	got := findFramebufferCandidates(mem, regions, moveStorageSizeBytes, true)
+	if len(got) != 1 || got[0].exactSize {
+		t.Fatalf("candidates = %+v", got)
+	}
+	if _, err := chooseCandidate(got, -1); err == nil {
+		t.Fatal("picked a buffer before the display is set up")
+	}
+}
+
+func TestExactChunkSizeFollowsGlibc(t *testing.T) {
+	tests := map[int64]int64{
+		moveStorageSizeBytes: 6516736, // measured on the Move
+		10*4096 - 16:         11 * 4096,
+		10*4096 - 32:         10 * 4096,
+	}
+	for frame, want := range tests {
+		if got := exactChunkSize(frame); got != want {
+			t.Errorf("exactChunkSize(%d) = %d, want %d", frame, got, want)
+		}
+	}
+}
+
+// On the Move a chunk that only roughly fits right after card0 does not win
+// over the chunk of exactly the screen's size further down.
+func TestMoveExactSizeBeatsAdjacency(t *testing.T) {
+	regions := mustParse(t, `ffff6f533000-ffff6f662000 rw-s 00000000 00:06 109                        /dev/dri/card0
+ffff6f662000-ffff70000000 rw-p 00000000 00:00 0
+ffff70000000-ffff70058000 rw-p 00000000 00:00 0
+ffff7402b000-ffff747f0000 rw-p 00000000 00:00 0
+`)
+	mem := fakeMem{}
+	mem.putChunks(0xffff6f662000, 6578176)
+	mem.putChunks(0xffff7402b000, 0x18e000, 6516736)
+
+	got := findFramebufferCandidates(mem, regions, moveStorageSizeBytes, true)
+	if len(got) != 2 || got[0].addr != 0xffff741b9000 || !got[0].exactSize || got[1].addr != 0xffff6f662000 {
+		t.Fatalf("candidates = %+v", got)
+	}
+}
+
+// On the Paper Pro the buffer right after card0 stays first, even with a
+// screen-sized copy of exactly the image's size a few lines further.
+func TestPaperProAdjacencyBeatsExactCopy(t *testing.T) {
+	regions := mustParse(t, `ffff20000000-ffff201ad000 rw-s 00000000 00:06 275                        /dev/dri/card0
+ffff201ad000-ffff22000000 rw-p 00000000 00:00 0
+ffff22000000-ffff22010000 ---p 00000000 00:00 0
+ffff30000000-ffff32000000 rw-p 00000000 00:00 0
+`)
+	mem := fakeMem{}
+	mem.putChunks(0xffff201ad000, chunkSmall, chunkScreen)
+	mem.putChunks(0xffff30000000, exactChunkSize(rmppFrameSize))
+
+	got := findFramebufferCandidates(mem, regions, rmppFrameSize, false)
+	if len(got) != 2 || got[0].addr != 0xffff201ad000+chunkSmall || got[1].addr != 0xffff30000000 || !got[1].exactSize {
+		t.Fatalf("candidates = %+v", got)
+	}
+}
+
+// Far from the display's mappings, even a chunk of exactly the screen's
+// size is not trusted.
+func TestExactSizeTooFarFromCard0(t *testing.T) {
+	maps := "ffff10000000-ffff10010000 rw-s 00000000 00:06 109                        /dev/dri/card0\n"
+	for i := 0; i < maxCard0Distance; i++ {
+		maps += fmt.Sprintf("ffff%08x-ffff%08x ---p 00000000 00:00 0\n", 0x20000000+i*0x10000, 0x20010000+i*0x10000)
+	}
+	maps += "ffff7402b000-ffff747f0000 rw-p 00000000 00:00 0\n"
+	regions := mustParse(t, maps)
+	if d := regions[len(regions)-1].card0Distance; d != maxCard0Distance+1 {
+		t.Fatalf("distance = %d", d)
+	}
+	mem := fakeMem{}
+	mem.putChunks(0xffff7402b000, 0x18e000, 6516736)
+	got := findFramebufferCandidates(mem, regions, moveStorageSizeBytes, true)
+	if len(got) != 1 || got[0].exactSize {
+		t.Fatalf("candidates = %+v", got)
+	}
+	if _, err := chooseCandidate(got, -1); err == nil {
+		t.Fatal("picked a buffer far from the display's mappings")
 	}
 }
