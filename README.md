@@ -237,6 +237,7 @@ Configure the application via environment variables:
 - `RK_DEV_MODE`: (True/False, default: `false`) Enable or disable developer mode.
 - `RK_DELTA_THRESHOLD`: (Float, default: `0.30`) Change ratio threshold (0.0-1.0) above which a full frame is sent instead of delta.
 - `RK_FB_CANDIDATE`: (Integer, default: `-1` = automatic, Paper Pro and Paper Pro Move only) Forces the n-th framebuffer candidate listed in the startup log, in case the automatic choice shows the wrong picture. Meant for diagnosis: the numbering can change when xochitl restarts.
+- `RK_DEBUG_GESTURES`: (True/False, default: `false`) Logs the touch panel's axes at startup and one line per finger swipe: where it started and ended, the distances sent to the browser, and what the browser makes of it (for example `right (next slide)`). Meant for tuning the swipe gestures on a device.
 
 ### Tailscale Configuration
 
