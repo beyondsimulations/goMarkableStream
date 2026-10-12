@@ -19,6 +19,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 
 	dbg "github.com/owulveryck/goMarkableStream/internal/debug"
+	"github.com/owulveryck/goMarkableStream/internal/eventhttphandler"
 	"github.com/owulveryck/goMarkableStream/internal/jwtutil"
 	"github.com/owulveryck/goMarkableStream/internal/pubsub"
 	"github.com/owulveryck/goMarkableStream/internal/remarkable"
@@ -35,6 +36,7 @@ type configuration struct {
 	DeltaThreshold float64 `envconfig:"DELTA_THRESHOLD" default:"0.30" description:"Change ratio threshold (0.0-1.0) above which full frame is sent"`
 	Debug          bool    `envconfig:"DEBUG" default:"false" description:"Enable debug logging"`
 	FBCandidate    int     `envconfig:"FB_CANDIDATE" default:"-1" description:"Paper Pro and Paper Pro Move only: force the n-th framebuffer candidate from the startup log (-1: automatic)"`
+	DebugGestures  bool    `envconfig:"DEBUG_GESTURES" default:"false" description:"Log the touch panel and every swipe with what the browser makes of it, to tune the gestures"`
 
 	// TLS certificate configuration
 	TLSCertFile     string `envconfig:"TLS_CERT_FILE" default:"" description:"Path to custom TLS certificate file"`
@@ -230,6 +232,10 @@ func main() {
 	eventPublisher := pubsub.NewPubSub()
 	eventScanner := remarkable.NewEventScanner()
 	eventScanner.StartAndPublish(ctx, eventPublisher)
+	if c.DebugGestures {
+		log.Print(remarkable.DescribeTouchDevice())
+		go eventhttphandler.LogGestures(ctx, eventPublisher)
+	}
 
 	// Channel to signal Tailscale listener restart
 	restartCh := make(chan bool, 1)

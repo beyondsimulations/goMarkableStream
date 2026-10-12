@@ -55,6 +55,53 @@ func (g *gesture) reset() {
 	g.downDistance = 0
 }
 
+const (
+	codeXAxis uint16 = 54
+	codeYAxis uint16 = 53
+	// A gesture is a run of touch events with less than this between them.
+	gestureMaxInterval = 150 * time.Millisecond
+)
+
+// swipeTracker adds up the distance a touch travels in each direction, from
+// the touch panel's absolute position events.
+type swipeTracker struct {
+	gesture
+	lastX, lastY int32
+}
+
+// observe adds one EV_ABS event. The first position on each axis only sets
+// the starting point.
+func (t *swipeTracker) observe(event events.InputEventFromSource) {
+	switch event.Code {
+	case codeXAxis:
+		if t.lastX != 0 {
+			distance := event.Value - t.lastX
+			if distance < 0 {
+				t.rightDistance += -int64(distance)
+			} else {
+				t.leftDistance += int64(distance)
+			}
+		}
+		t.lastX = event.Value
+	case codeYAxis:
+		if t.lastY != 0 {
+			distance := event.Value - t.lastY
+			if distance < 0 {
+				t.upDistance += -int64(distance)
+			} else {
+				t.downDistance += int64(distance)
+			}
+		}
+		t.lastY = event.Value
+	}
+}
+
+func (t *swipeTracker) reset() {
+	t.gesture.reset()
+	t.lastX = 0
+	t.lastY = 0
+}
+
 // ServeHTTP implements http.Handler
 func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Subscribe only to Touch events of type EvAbs
@@ -67,19 +114,9 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		h.inputEventBus.Unsubscribe(eventC)
 	}()
-	const (
-		codeXAxis   uint16 = 54
-		codeYAxis   uint16 = 53
-		maxStepDist int32  = 150
-		// a gesture in a set of event separated by 100 millisecond
-		gestureMaxInterval = 150 * time.Millisecond
-	)
-
 	tick := time.NewTicker(gestureMaxInterval)
 	defer tick.Stop()
-	currentGesture := &gesture{}
-	lastEventX := events.InputEventFromSource{}
-	lastEventY := events.InputEventFromSource{}
+	tracker := &swipeTracker{}
 
 	enc := json.NewEncoder(w)
 	w.Header().Set("Content-Type", "application/x-ndjson")
@@ -90,8 +127,8 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-tick.C:
 			// TODO send last event
-			if currentGesture.sum() != 0 {
-				err := enc.Encode(currentGesture)
+			if tracker.sum() != 0 {
+				err := enc.Encode(&tracker.gesture)
 				if err != nil {
 					http.Error(w, "cannot send json encode the message "+err.Error(), http.StatusInternalServerError)
 					return
@@ -100,38 +137,9 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					f.Flush()
 				}
 			}
-			currentGesture.reset()
-			lastEventX = events.InputEventFromSource{}
-			lastEventY = events.InputEventFromSource{}
+			tracker.reset()
 		case event := <-eventC:
-			switch event.Code {
-			case codeXAxis:
-				// This is the initial event, do not compute the distance
-				if lastEventX.Value == 0 {
-					lastEventX = event
-					continue
-				}
-				distance := event.Value - lastEventX.Value
-				if distance < 0 {
-					currentGesture.rightDistance += -int64(distance)
-				} else {
-					currentGesture.leftDistance += int64(distance)
-				}
-				lastEventX = event
-			case codeYAxis:
-				// This is the initial event, do not compute the distance
-				if lastEventY.Value == 0 {
-					lastEventY = event
-					continue
-				}
-				distance := event.Value - lastEventY.Value
-				if distance < 0 {
-					currentGesture.upDistance += -int64(distance)
-				} else {
-					currentGesture.downDistance += int64(distance)
-				}
-				lastEventY = event
-			}
+			tracker.observe(event)
 			tick.Reset(gestureMaxInterval)
 		}
 	}
