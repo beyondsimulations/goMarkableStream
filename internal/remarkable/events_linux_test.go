@@ -76,7 +76,6 @@ func TestEventScannerClose(t *testing.T) {
 	}
 }
 
-// fileExists checks if a file exists
 // GrabTouch passes the kernel's answer on, and leaves the file's read
 // deadlines working: a pipe is no input device, so the grab fails with
 // ENOTTY, and a read still times out instead of blocking.
@@ -99,6 +98,7 @@ func TestGrabTouchKeepsReadDeadlines(t *testing.T) {
 	}
 }
 
+// fileExists checks if a file exists
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil

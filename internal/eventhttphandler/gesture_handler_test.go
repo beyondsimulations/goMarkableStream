@@ -46,7 +46,7 @@ func serveUntil(t *testing.T, geometry *remarkable.TouchGeometry, url string, ge
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		NewGestureHandler(bus, geometry, nil).ServeHTTP(w, httptest.NewRequest(http.MethodGet, url, nil).WithContext(ctx))
+		NewGestureHandler(bus, geometry, nil, nil).ServeHTTP(w, httptest.NewRequest(http.MethodGet, url, nil).WithContext(ctx))
 		close(done)
 	}()
 	defer func() {

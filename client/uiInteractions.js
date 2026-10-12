@@ -214,6 +214,12 @@ if (fullscreenButton) {
     fullscreenButton.addEventListener('click', toggleFullscreen);
 }
 
+// A presentation key (B, Z, I): only with a presentation, and not on browser
+// shortcuts such as Ctrl+B or on key repeat.
+function isPresentationKey(e) {
+    return Boolean(iFrame.getAttribute('src')) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat;
+}
+
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
     // Don't trigger shortcuts when typing in input fields
@@ -237,29 +243,26 @@ document.addEventListener('keydown', function(e) {
             document.getElementById('laserToggle').click();
             break;
         case 'b':
-            // Paper background toggle (ink only <-> white page), presentation mode
-            // only, and not on browser shortcuts such as Ctrl+B or key repeat
-            if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+            // Paper background toggle (ink only <-> white page)
+            if (!isPresentationKey(e)) {
                 break;
             }
             setPaperTransparent(!paperTransparent);
             showMessage(paperTransparent ? 'Ink only (transparent paper)' : 'White page', MessageDuration.QUICK);
             break;
         case 'z':
-            // Layer order toggle (drawing <-> content on top), presentation
-            // mode only, with the same guards as B
-            if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+            // Layer order toggle (drawing <-> content on top)
+            if (!isPresentationKey(e)) {
                 break;
             }
             toggleLayerOrder();
             break;
         case 'i':
-            // The tablet ignores the fingers (or reacts again), presentation
-            // mode only, with the same guards as B
-            if (!iFrame.getAttribute('src') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+            // The tablet ignores the fingers (or reacts again)
+            if (!isPresentationKey(e)) {
                 break;
             }
-            setTouchBlock(!touchBlockWanted);
+            toggleTouchBlock();
             break;
         case 't':
             // Trail toggle
@@ -441,9 +444,6 @@ function setTouchBlock(wanted) {
     const button = document.getElementById('touchBlockButton');
     button.classList.toggle('toggled', wanted);
     button.setAttribute('aria-pressed', String(wanted));
-    if (!wanted) {
-        showMessage('The tablet reacts to your fingers again', MessageDuration.QUICK);
-    }
 }
 
 // The server's answer, sent each time the gesture stream opens while the
@@ -453,11 +453,7 @@ function touchBlockAnswered(blocked, error) {
         return; // an answer for a block already turned off
     }
     if (!blocked) {
-        touchBlockWanted = false;
-        gestureWorker.postMessage({ type: 'block', block: false });
-        const button = document.getElementById('touchBlockButton');
-        button.classList.remove('toggled');
-        button.setAttribute('aria-pressed', 'false');
+        setTouchBlock(false);
         showMessage('Could not block the tablet\'s touch' + (error ? ': ' + error : ''), MessageDuration.IMPORTANT);
         return;
     }
@@ -467,7 +463,15 @@ function touchBlockAnswered(blocked, error) {
     }
 }
 
-document.getElementById('touchBlockButton').addEventListener('click', () => setTouchBlock(!touchBlockWanted));
+// The button and the I key.
+function toggleTouchBlock() {
+    setTouchBlock(!touchBlockWanted);
+    if (!touchBlockWanted) {
+        showMessage('The tablet reacts to your fingers again', MessageDuration.QUICK);
+    }
+}
+
+document.getElementById('touchBlockButton').addEventListener('click', toggleTouchBlock);
 
 // Laser toggle button functionality
 document.getElementById('laserToggle').addEventListener('click', function () {

@@ -26,12 +26,13 @@ const (
 // With a touch geometry (Paper Pro, Paper Pro Move) it names each swipe as
 // the browser's view shows the tablet; without one (reMarkable 2) it sends
 // the direction totals and the browser names them. grabTouch takes the touch
-// panel from xochitl or gives it back (nil where it cannot).
-func NewGestureHandler(inputEvents *pubsub.PubSub, geometry *remarkable.TouchGeometry, grabTouch func(bool) error) *GestureHandler {
+// panel from xochitl or gives it back (nil where it cannot); allowBlock, if
+// set, says why taking it is refused right now.
+func NewGestureHandler(inputEvents *pubsub.PubSub, geometry *remarkable.TouchGeometry, grabTouch func(bool) error, allowBlock func() error) *GestureHandler {
 	return &GestureHandler{
 		inputEventBus: inputEvents,
 		geometry:      geometry,
-		block:         &touchBlock{grab: grabTouch},
+		block:         &touchBlock{grab: grabTouch, allow: allowBlock},
 	}
 }
 
@@ -146,7 +147,10 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-ndjson")
 
 	// ?block=1 keeps xochitl from seeing the fingers while this request
-	// lasts; the swipes still reach this stream.
+	// lasts; the swipes still reach this stream. The request ends after
+	// blockLease, between gestures, and the browser asks again at once, so
+	// a page that went away without closing its connection lets go.
+	var lease <-chan time.Time
 	if r.URL.Query().Get("block") == "1" {
 		status := blockMessage{TouchBlocked: true}
 		if err := h.block.acquire(); err != nil {
@@ -154,6 +158,9 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			status = blockMessage{Error: err.Error()}
 		} else {
 			defer h.block.release()
+			leaseTimer := time.NewTimer(blockLease)
+			defer leaseTimer.Stop()
+			lease = leaseTimer.C
 		}
 		if err := enc.Encode(status); err != nil {
 			return
@@ -163,10 +170,17 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// pending: events since the last tick, so a gesture may be under way.
+	var pending, leaseOver bool
 	for {
 		select {
 		case <-r.Context().Done():
 			return
+		case <-lease:
+			if !pending {
+				return
+			}
+			leaseOver = true // after this gesture
 		case <-tick.C:
 			var message any
 			if h.geometry != nil {
@@ -187,7 +201,12 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			tracker.reset()
 			reader.endGesture()
+			pending = false
+			if leaseOver {
+				return
+			}
 		case event := <-eventC:
+			pending = true
 			if h.geometry != nil {
 				reader.observe(event)
 			} else {

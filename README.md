@@ -327,7 +327,7 @@ Swipe with one finger on the tablet to control a reveal.js presentation. A swipe
 | diagonal, bottom left to top right | drawing on top |
 | diagonal, bottom right to top left | content on top |
 
-The tablet's own software sees the same swipes and turns its notebook page, adding a new page at the end of a notebook. Press `I` in the browser to stop that: the tablet then ignores your fingers (no page turns, no taps on its menus) while the swipes still change the slides; the pen works as usual. Press `I` again to give the tablet its touch back; closing the presentation page or stopping goMarkableStream gives it back as well.
+The tablet's own software sees the same swipes and turns its notebook page, adding a new page at the end of a notebook. Press `I` in the browser to stop that: the tablet then ignores your fingers (no page turns, no taps on its menus) while the swipes still change the slides; the pen works as usual. Press `I` again to give the tablet its touch back; closing the presentation page or stopping goMarkableStream gives it back as well, and a page that goes away without closing (a laptop going to sleep) lets go within about half a minute. While the stream is shared publicly with Tailscale Funnel, `I` is not available, so viewers cannot take the touch away.
 
 On the Paper Pro and the Paper Pro Move, swipes are read as the browser shows the tablet. Holding the tablet in landscape with its top edge on the right, press `R` (the picture turns with it); with the top edge on the left, add `&flip=true` to the URL as well. Touches with two fingers are ignored. The reMarkable 2 keeps its original swipe detection, with right to left as the next slide.
 

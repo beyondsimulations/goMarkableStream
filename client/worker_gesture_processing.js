@@ -69,10 +69,13 @@ onmessage = (event) => {
 
 // Keeps the gesture stream open: again at once after a rotation or block
 // change, and after a growing pause when the stream ends or fails. A refused
-// sign-in stops it, since the same token would be refused again.
+// sign-in stops it, since the same token would be refused again. While the
+// tablet ignores the fingers the server ends the stream every 30 seconds,
+// and it is opened again at once to keep the block.
 async function streamGestures() {
 	while (running) {
 		controller = new AbortController();
+		const opened = Date.now();
 		try {
 			await fetchStream(controller.signal);
 		} catch (e) {
@@ -85,7 +88,8 @@ async function streamGestures() {
 				console.error('Gesture stream error:', e);
 			}
 		}
-		if (running && !controller.signal.aborted) {
+		const renewal = block && Date.now() - opened > 5000;
+		if (running && !controller.signal.aborted && !renewal) {
 			await new Promise((resolve) => setTimeout(resolve, retryDelay));
 			retryDelay = Math.min(retryDelay * 2, 30000);
 		}
