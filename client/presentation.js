@@ -54,8 +54,16 @@ function initPresentationChrome() {
 	document.getElementById('presentBoard').addEventListener('click', () => {
 		setPaperTransparent(!paperTransparent);
 	});
+	document.getElementById('presentLayers').addEventListener('click', toggleLayerOrder);
+	document.getElementById('presentTouch').addEventListener('click', toggleTouchBlock);
 	document.getElementById('presentLaser').addEventListener('click', () => {
 		document.getElementById('laserToggle').click();
+	});
+	document.getElementById('presentTrail').addEventListener('click', () => {
+		document.getElementById('trailToggle').click();
+	});
+	document.getElementById('presentRotate').addEventListener('click', () => {
+		document.getElementById('rotate').click();
 	});
 	document.getElementById('presentFullscreen').addEventListener('click', toggleFullscreen);
 	document.getElementById('presentRetry').addEventListener('click', () => {
@@ -69,6 +77,7 @@ function initPresentationChrome() {
 	// Keep the bar in step when the keyboard or the sidebar changes a mode.
 	document.addEventListener('papermodechange', refreshPresentTray);
 	document.addEventListener('fullscreenchange', refreshPresentTray);
+	document.addEventListener('presentstatechange', refreshPresentTray);
 	document.getElementById('laserToggle').addEventListener('click', refreshPresentTray);
 
 	refreshPresentTray();
@@ -108,12 +117,19 @@ function hidePresentTrayIfIdle() {
 }
 
 function refreshPresentTray() {
+	const pressed = (id, on) => document.getElementById(id).setAttribute('aria-pressed', String(on));
+	pressed('presentBoard', !paperTransparent);
+	pressed('presentLayers', contentLayerOnTop);
+	pressed('presentTouch', touchBlockWanted);
+	pressed('presentLaser', laserEnabled);
+	pressed('presentTrail', trailEnabled);
+	pressed('presentRotate', portrait);
 	const fullscreen = Boolean(document.fullscreenElement);
-	document.getElementById('presentBoard').setAttribute('aria-pressed', String(!paperTransparent));
-	document.getElementById('presentLaser').setAttribute('aria-pressed', String(laserEnabled));
 	const fullscreenButton = document.getElementById('presentFullscreen');
 	fullscreenButton.setAttribute('aria-pressed', String(fullscreen));
-	fullscreenButton.querySelector('span').textContent = fullscreen ? 'Leave full screen' : 'Full screen';
+	const label = fullscreen ? 'Leave full screen' : 'Full screen';
+	fullscreenButton.setAttribute('aria-label', label + ' (F)');
+	fullscreenButton.dataset.tip = label + ' · F';
 }
 
 // Shown on the first presentation only, like Periphery's first-zoom hint.

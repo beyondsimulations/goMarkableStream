@@ -76,6 +76,7 @@ window.onload = async function() {
 	// Set the iframe source if the URL is available
 	if (presentURL) {
 		document.getElementById('content').src = presentURL;
+		document.getElementById('boardMenuItem').style.display = '';
 		document.getElementById('layersMenuItem').style.display = '';  // Show layers menu
 		document.getElementById('touchBlockMenuItem').style.display = '';
 		restoreLayerOrder();
