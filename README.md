@@ -316,7 +316,7 @@ This feature is ideal for enhancing presentations or educational content by allo
 - You can then annotate or draw on the reMarkable tablet, with your input appearing over the embedded content in the stream.
 - Only the ink is shown: the white of the tablet's page is rendered transparent. Press `W` to switch to the opaque white page and back, for example to write on a blank sheet. The white page also hides the embedded content, so the whole window becomes a white board.
 - Press `Z` to put the embedded content on top of the drawing, for example to click a link or play a video in it, and again to put the drawing back on top. The shortcuts reach the page only while it has the keyboard: after clicking inside the embedded content, click outside it (the sidebar or the control bar) first.
-- Nothing else covers the slides while you present. Move the pointer to show a small control bar (connection, white board, laser, full screen); it fades out again once the pointer rests. A hint with the keys `W`, `Z`, `I`, `L` and `F` appears the first time only, and a lost connection shows as a small label, or as a card with Try Again when the tablet stays unreachable.
+- Nothing else covers the slides while you present. Move the pointer to show a small control bar: the connection, then icons for white board, slides on top, block touch, laser, trail, rotate and full screen (hover one for its name and key; the sidebar lists them by name). It fades out again once the pointer rests. A hint with the keys `W`, `Z`, `I`, `L` and `F` appears the first time only, and a lost connection shows as a small label, or as a card with Try Again when the tablet stays unreachable.
 
 ### Swipe Gestures
 

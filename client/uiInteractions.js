@@ -249,8 +249,7 @@ document.addEventListener('keydown', function(e) {
             if (!isPresentationKey(e)) {
                 break;
             }
-            setPaperTransparent(!paperTransparent);
-            showMessage(paperTransparent ? 'Ink only (transparent paper)' : 'White page', MessageDuration.QUICK);
+            toggleWhiteBoard();
             break;
         case 'z':
             // Layer order toggle (drawing <-> content on top)
@@ -330,6 +329,7 @@ document.getElementById('rotate').addEventListener('click', function () {
 
     // Save preference
     savePreference(STORAGE_KEYS.PORTRAIT_MODE, portrait);
+    notifyPresentState();
 
     // Show confirmation message
     showMessage(`Display ${portrait ? 'portrait' : 'landscape'} mode activated`, MessageDuration.QUICK);
@@ -397,6 +397,24 @@ function updateLayerOrderUI(contentOnTop) {
     }
 }
 
+// The white board: the opaque white page over the slides (W key, sidebar).
+function toggleWhiteBoard() {
+    setPaperTransparent(!paperTransparent);
+    showMessage(paperTransparent ? 'Ink only (transparent paper)' : 'White page', MessageDuration.QUICK);
+}
+
+document.getElementById('boardButton').addEventListener('click', toggleWhiteBoard);
+document.addEventListener('papermodechange', () => {
+    const button = document.getElementById('boardButton');
+    button.classList.toggle('toggled', !paperTransparent);
+    button.setAttribute('aria-pressed', String(!paperTransparent));
+});
+
+// Tells the presentation's control bar that a mode it shows has changed.
+function notifyPresentState() {
+    document.dispatchEvent(new CustomEvent('presentstatechange'));
+}
+
 // Whether the embedded content is on top of the drawing. The stylesheet puts
 // the drawing on top until one of the functions below changes it.
 let contentLayerOnTop = false;
@@ -408,6 +426,7 @@ function setContentOnTop(contentOnTop) {
     iFrame.style.zIndex = contentOnTop ? 4 : 1;
     savePreference(STORAGE_KEYS.LAYER_ORDER, contentOnTop ? 'content' : 'drawing');
     updateLayerOrderUI(contentOnTop);
+    notifyPresentState();
 }
 
 // The layer button and the Z key.
@@ -466,6 +485,7 @@ function setTouchBlock(wanted) {
     const button = document.getElementById('touchBlockButton');
     button.classList.toggle('toggled', wanted);
     button.setAttribute('aria-pressed', String(wanted));
+    notifyPresentState();
 }
 
 // The server's answer, sent each time the gesture stream opens while the
@@ -545,6 +565,7 @@ document.getElementById('laserToggle').addEventListener('click', function () {
 
     // Save preference
     savePreference(STORAGE_KEYS.LASER_ENABLED, laserEnabled);
+    notifyPresentState();
 
     showMessage(`Laser pointer ${laserEnabled ? 'enabled' : 'disabled'}`, MessageDuration.QUICK);
 });
@@ -565,6 +586,7 @@ if (trailToggle) {
 
         // Save preference
         savePreference(STORAGE_KEYS.TRAIL_ENABLED, trailEnabled);
+        notifyPresentState();
 
         showMessage(`Laser trail ${trailEnabled ? 'enabled' : 'disabled'}`, MessageDuration.QUICK);
     });
