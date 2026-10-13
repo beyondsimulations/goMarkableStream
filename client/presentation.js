@@ -51,21 +51,17 @@ function initPresentationChrome() {
 		}
 	});
 
-	document.getElementById('presentBoard').addEventListener('click', () => {
-		setPaperTransparent(!paperTransparent);
-	});
+	// The same toggles as the keys and the sidebar. Laser, trail and rotate
+	// live in the sidebar's buttons, so the bar presses those.
+	document.getElementById('presentBoard').addEventListener('click', toggleWhiteBoard);
 	document.getElementById('presentLayers').addEventListener('click', toggleLayerOrder);
 	document.getElementById('presentTouch').addEventListener('click', toggleTouchBlock);
-	document.getElementById('presentLaser').addEventListener('click', () => {
-		document.getElementById('laserToggle').click();
-	});
-	document.getElementById('presentTrail').addEventListener('click', () => {
-		document.getElementById('trailToggle').click();
-	});
-	document.getElementById('presentRotate').addEventListener('click', () => {
-		document.getElementById('rotate').click();
-	});
 	document.getElementById('presentFullscreen').addEventListener('click', toggleFullscreen);
+	for (const [barId, sidebarId] of [['presentLaser', 'laserToggle'], ['presentTrail', 'trailToggle'], ['presentRotate', 'rotate']]) {
+		document.getElementById(barId).addEventListener('click', () => {
+			document.getElementById(sidebarId).click();
+		});
+	}
 	document.getElementById('presentRetry').addEventListener('click', () => {
 		const retry = presentRetryHandler;
 		hidePresentationFailure();
@@ -74,11 +70,11 @@ function initPresentationChrome() {
 		}
 	});
 
-	// Keep the bar in step when the keyboard or the sidebar changes a mode.
+	// Keep the bar in step when the keyboard, a swipe or the sidebar changes
+	// a mode.
 	document.addEventListener('papermodechange', refreshPresentTray);
 	document.addEventListener('fullscreenchange', refreshPresentTray);
 	document.addEventListener('presentstatechange', refreshPresentTray);
-	document.getElementById('laserToggle').addEventListener('click', refreshPresentTray);
 
 	refreshPresentTray();
 	showPresentKeyHint();
@@ -124,12 +120,12 @@ function refreshPresentTray() {
 	pressed('presentLaser', laserEnabled);
 	pressed('presentTrail', trailEnabled);
 	pressed('presentRotate', portrait);
+	// The tip says what a click does; screen readers keep the fixed name
+	// "Full screen" and hear the state from aria-pressed.
 	const fullscreen = Boolean(document.fullscreenElement);
 	const fullscreenButton = document.getElementById('presentFullscreen');
 	fullscreenButton.setAttribute('aria-pressed', String(fullscreen));
-	const label = fullscreen ? 'Leave full screen' : 'Full screen';
-	fullscreenButton.setAttribute('aria-label', label + ' (F)');
-	fullscreenButton.dataset.tip = label + ' · F';
+	fullscreenButton.dataset.tip = (fullscreen ? 'Leave full screen' : 'Full screen') + ' · F';
 }
 
 // Shown on the first presentation only, like Periphery's first-zoom hint.

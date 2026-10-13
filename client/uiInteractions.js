@@ -565,6 +565,7 @@ document.getElementById('laserToggle').addEventListener('click', function () {
 
     // Save preference
     savePreference(STORAGE_KEYS.LASER_ENABLED, laserEnabled);
+    notifyPresentState();
 
     showMessage(`Laser pointer ${laserEnabled ? 'enabled' : 'disabled'}`, MessageDuration.QUICK);
 });

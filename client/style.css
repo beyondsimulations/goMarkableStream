@@ -3077,7 +3077,8 @@ body.presenting {
 }
 
 /* The buttons are icons; the name and key show above one on hover or
-   keyboard focus. A fade, so it stays under Reduce Motion. */
+   keyboard focus. Solid ink, so it reads over any slide (a blur here would
+   only see the bar's own layer). A fade, so it stays under Reduce Motion. */
 .present-item[data-tip] {
     padding: 0 9px;
 }
@@ -3090,21 +3091,32 @@ body.presenting {
     transform: translateX(-50%);
     padding: 6px 9px;
     border-radius: 8px;
-    background: var(--present-material);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow: inset 0 0 0 0.5px var(--present-hairline), 0 4px 14px rgba(0, 0, 0, 0.18);
+    background: var(--present-ink);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
     font: 12px/1 var(--present-font);
-    color: var(--present-text);
+    color: var(--present-on-ink);
     white-space: nowrap;
     pointer-events: none;
     opacity: 0;
     transition: opacity var(--present-fade) ease;
 }
 
-.present-item[data-tip]:hover::after,
+/* The last tip lines up with the bar's end, so it stays on a phone's screen. */
+.present-item[data-tip]:last-child::after {
+    left: auto;
+    right: 0;
+    transform: none;
+}
+
 .present-item[data-tip]:focus-visible::after {
     opacity: 1;
+}
+
+/* Hover only where there is one: a tap would otherwise leave the tip up. */
+@media (hover: hover) {
+    .present-item[data-tip]:hover::after {
+        opacity: 1;
+    }
 }
 
 .present-item:focus-visible {
