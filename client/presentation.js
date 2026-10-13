@@ -142,11 +142,7 @@ function showPresentKeyHint() {
 	presentHintTimer = setTimeout(() => {
 		// Marked as seen once it is on screen, so a hint that an early pointer
 		// movement cut short comes back next time.
-		try {
-			localStorage.setItem(PRESENT_HINT_KEY, 'true');
-		} catch (e) {
-			// not remembered
-		}
+		savePreference(PRESENT_HINT_KEY, true);
 		hint.classList.add('visible');
 		presentHintTimer = setTimeout(hidePresentKeyHint, PRESENT_HINT_MS);
 	}, PRESENT_HINT_DELAY_MS);

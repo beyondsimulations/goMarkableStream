@@ -119,6 +119,45 @@ func TestSwipeRulesMatchClient(t *testing.T) {
 	}
 }
 
+// The log's actions are what the browser does with each name: the worker's
+// LEGACY_SWIPES gives the swipe, the page's SWIPE_ACTIONS its action.
+func TestSwipeRuleActionsMatchClient(t *testing.T) {
+	worker, err := os.ReadFile("../../client/worker_gesture_processing.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := os.ReadFile("../../client/workersHandling.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := map[string]string{}
+	for _, m := range regexp.MustCompile(`'([a-z-]+)': '(swipe-[a-z-]+)'`).FindAllStringSubmatch(string(worker), -1) {
+		legacy[m[1]] = m[2]
+	}
+	actions := map[string]string{}
+	words := map[string]string{
+		"sendSlideCommand('next')": "next slide",
+		"sendSlideCommand('prev')": "previous slide",
+		"swipeLayer(true)":         "content on top",
+		"swipeLayer(false)":        "drawing on top",
+	}
+	for _, m := range regexp.MustCompile(`'(swipe-[a-z-]+)': \(\) => ([a-zA-Z]+\([^)]*\))`).FindAllStringSubmatch(string(page), -1) {
+		actions[m[1]] = words[m[2]]
+	}
+	if len(legacy) != 8 || len(actions) != 6 {
+		t.Fatalf("could not read the client: %d legacy names, %d actions", len(legacy), len(actions))
+	}
+	for _, r := range swipeRules {
+		want := actions[legacy[r.name]]
+		if want == "" {
+			want = "nothing"
+		}
+		if r.action != want {
+			t.Errorf("%s: the log says %q, the browser does %q", r.name, r.action, want)
+		}
+	}
+}
+
 func TestGestureLogLine(t *testing.T) {
 	var g gestureLog
 	start := time.Unix(0, 0)

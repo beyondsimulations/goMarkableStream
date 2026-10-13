@@ -187,6 +187,59 @@ ssh move 'pkill -f "[g]oMarkableStream"; while pgrep -f "[g]oMarkableStream" > /
 `RK_SERVER_USERNAME` / `RK_SERVER_PASSWORD` (default `admin` /
 `password`).
 
+## 3b. Running it all the time
+
+goMarkableStream can run as a system service: it starts when the tablet
+starts and again after a crash. Install it from the copied binary (stop a
+running one first):
+
+```
+ssh move 'pkill -f "[g]oMarkableStream"; ./goMarkableStream-RMMOVE install'
+```
+
+This writes `/etc/systemd/system/goMarkableStream.service` (pointing at
+`/home/root/goMarkableStream-RMMOVE`) and a settings file,
+`/home/root/.config/goMarkableStream/env`, and starts the service. If it
+fails with "Read-only file system", make the system partition writable
+first (`ssh move 'mount -o remount,rw /'`) and run it again.
+
+**Set your own login.** Running all the time, it answers anyone on the
+same Wi-Fi, and the default login is `admin` / `password`:
+
+```
+ssh move 'printf "RK_SERVER_USERNAME=tobi\nRK_SERVER_PASSWORD=choose-one\n" >> /home/root/.config/goMarkableStream/env && systemctl restart goMarkableStream'
+```
+
+Other settings (`RK_DEBUG_GESTURES=true` and the like) go into the same
+file, one per line; restart the service after a change.
+
+| To | Run |
+|---|---|
+| See whether it runs | `ssh move 'systemctl status goMarkableStream'` |
+| Follow its log | `ssh move 'journalctl -u goMarkableStream -f'` |
+| Stop / start it | `ssh move 'systemctl stop goMarkableStream'` / `start` |
+| Remove it | `ssh move 'systemctl disable --now goMarkableStream'` |
+
+**Updating** the binary of the service: stop the service, copy, start it.
+
+```
+ssh move 'systemctl stop goMarkableStream' \
+  && scp ~/Downloads/goMarkableStream-RMMOVE move: \
+  && ssh move 'chmod +x goMarkableStream-RMMOVE && systemctl start goMarkableStream'
+```
+
+**After a firmware update** the service file can be gone (the update
+replaces the system partition); the binary and the settings in
+`/home/root` stay. Run the `install` line again.
+
+**Battery.** Without a browser connected it waits for input and reads
+nothing from the screen. While a page shows the stream, it reads and
+compresses the screen while you write (and pauses within 2 seconds once
+nothing moves) and sends it over USB or Wi-Fi; that, and Wi-Fi itself, are what
+cost battery. It has not been measured on these tablets: compare the
+battery level over a talk with and without the stream to see what it costs
+you. When the tablet sleeps, the program sleeps with it.
+
 ## 4. Presentation keys
 
 | Key | Does |

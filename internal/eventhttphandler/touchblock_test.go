@@ -213,8 +213,8 @@ func TestTouchBlockDropByOtherPage(t *testing.T) {
 		t.Fatalf("another page's turning off changed the block: %v", g.seen())
 	}
 	b.release(held) // the grace starts, with page-a as the last holder
-	if b.drop("page-x") || len(g.seen()) != 1 {
-		t.Fatalf("another page cut the grace short: %v", g.seen())
+	if !b.drop("page-x") || len(g.seen()) != 1 {
+		t.Fatalf("during page-a's grace another page was told no one holds the panel, or cut the grace short: %v", g.seen())
 	}
 	if b.drop("page-a") || !reflect.DeepEqual(g.seen(), []bool{true, false}) {
 		t.Fatalf("the last holder could not end the grace: %v", g.seen())

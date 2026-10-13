@@ -320,7 +320,7 @@ This feature is ideal for enhancing presentations or educational content by allo
 
 ### Swipe Gestures
 
-Swipe with one finger on the tablet to control a reveal.js presentation. A swipe moves one step in reading order, like the space bar: the next fragment or slide, including the slides inside a vertical stack (a chapter in a Quarto deck).
+On the Paper Pro and the Paper Pro Move, swipe with one finger on the tablet to control a reveal.js presentation. A swipe moves one step in reading order, like the space bar: the next fragment or slide, including the slides inside a vertical stack (a chapter in a Quarto deck).
 
 | Swipe | Action |
 |---|---|

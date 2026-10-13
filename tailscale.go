@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/tsnet"
@@ -23,9 +24,9 @@ type TailscaleManager struct {
 	server        *tsnet.Server
 	config        *configuration
 	started       bool
-	funnelEnabled bool         // Current Funnel state
-	tsListener    net.Listener // Current Tailscale listener
-	mu            sync.Mutex   // Protect concurrent access
+	funnelEnabled atomic.Bool   // Current Funnel state; read without mu (see FunnelEnabled)
+	tsListener    net.Listener  // Current Tailscale listener
+	mu            sync.Mutex    // Protect concurrent access
 	ready         chan struct{} // Closed when Tailscale is ready (for async startup)
 	startErr      error         // Error from background startup
 }
@@ -97,7 +98,7 @@ func (tm *TailscaleManager) Start(ctx context.Context) (net.Listener, error) {
 
 	tm.mu.Lock()
 	tm.tsListener = listener
-	tm.funnelEnabled = tm.config.TailscaleFunnel
+	tm.funnelEnabled.Store(tm.config.TailscaleFunnel)
 	tm.mu.Unlock()
 
 	return listener, nil
@@ -194,11 +195,10 @@ func (tm *TailscaleManager) UseTLS() bool {
 }
 
 // FunnelEnabled reports whether Funnel is on, from the stored state: no call
-// to Tailscale, which can fail or take long.
+// to Tailscale, and no wait on mu, which GetFunnelInfo and ToggleFunnel hold
+// across calls that can fail or take long.
 func (tm *TailscaleManager) FunnelEnabled() bool {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-	return tm.funnelEnabled
+	return tm.funnelEnabled.Load()
 }
 
 // GetFunnelInfo returns current funnel status and URL
@@ -228,7 +228,7 @@ func (tm *TailscaleManager) GetFunnelInfo() (enabled bool, url string, err error
 	// Extract port number from TailscalePort (e.g., ":8443" -> "8443")
 	portNum := strings.TrimPrefix(tm.config.TailscalePort, ":")
 	url = fmt.Sprintf("https://%s:%s", dnsName, portNum)
-	return tm.funnelEnabled, url, nil
+	return tm.funnelEnabled.Load(), url, nil
 }
 
 // ToggleFunnel enables or disables Funnel, returning new listener
@@ -262,7 +262,7 @@ func (tm *TailscaleManager) ToggleFunnel(enable bool) (net.Listener, error) {
 	}
 
 	tm.tsListener = newListener
-	tm.funnelEnabled = enable
+	tm.funnelEnabled.Store(enable)
 	return newListener, nil
 }
 

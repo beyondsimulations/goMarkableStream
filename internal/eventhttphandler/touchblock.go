@@ -117,7 +117,9 @@ func (b *touchBlock) drop(client string) (others bool) {
 		return true
 	}
 	if !had && (client == "" || b.lastHolder != client) {
-		return false
+		// Still taken for another page: its grace, or the gap while its
+		// lease renews.
+		return b.held
 	}
 	b.stopLetGo()
 	if b.held {
