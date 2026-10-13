@@ -66,6 +66,44 @@ func serveUntil(t *testing.T, geometry *remarkable.TouchGeometry, url string, ge
 	return ""
 }
 
+// A finger that rests on the panel since before the request started (a
+// lease renewal, a change of view) still counts: a swipe with another
+// finger beside it is no swipe.
+func TestGestureHandlerKnowsRestingFinger(t *testing.T) {
+	bus := pubsub.NewPubSub()
+	h := NewGestureHandler(bus, moveGeometry, nil, nil)
+	time.Sleep(50 * time.Millisecond) // the touch state subscribes
+	for _, ev := range []events.InputEventFromSource{
+		touchAbs(codeSlot, 0), touchAbs(codeTrackingID, 1), touchAbs(53, 200), touchAbs(54, 2000),
+	} {
+		bus.Publish(ev)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	w := &streamWriter{header: http.Header{}}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/gestures", nil).WithContext(ctx))
+		close(done)
+	}()
+	defer func() { cancel(); <-done }()
+	time.Sleep(50 * time.Millisecond)
+
+	second := []events.InputEventFromSource{touchAbs(codeSlot, 1), touchAbs(codeTrackingID, 2)}
+	for x := int32(1100); x >= 100; x -= 100 {
+		second = append(second, touchAbs(53, x), touchAbs(54, 1200))
+	}
+	second = append(second, touchAbs(codeTrackingID, -1))
+	for _, ev := range second {
+		bus.Publish(ev)
+	}
+	time.Sleep(gestureMaxInterval + 200*time.Millisecond)
+	if got := w.String(); got != "" {
+		t.Fatalf("a swipe beside a resting finger was sent: %s", got)
+	}
+}
+
 // On the Paper Pro and the Move the handler names the swipe for the view:
 // a finger moving toward the page's bottom edge is a right-to-left swipe
 // when the browser turns the page 90 degrees.

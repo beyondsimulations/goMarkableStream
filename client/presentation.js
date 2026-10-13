@@ -130,14 +130,23 @@ function refreshPresentTray() {
 
 // Shown on the first presentation only, like Periphery's first-zoom hint.
 function showPresentKeyHint() {
-	if (localStorage.getItem(PRESENT_HINT_KEY)) {
-		return;
+	// Blocked storage throws: then the hint simply shows each time.
+	try {
+		if (localStorage.getItem(PRESENT_HINT_KEY)) {
+			return;
+		}
+	} catch (e) {
+		// fall through
 	}
 	const hint = document.getElementById('presentKeyHint');
 	presentHintTimer = setTimeout(() => {
 		// Marked as seen once it is on screen, so a hint that an early pointer
 		// movement cut short comes back next time.
-		localStorage.setItem(PRESENT_HINT_KEY, 'true');
+		try {
+			localStorage.setItem(PRESENT_HINT_KEY, 'true');
+		} catch (e) {
+			// not remembered
+		}
 		hint.classList.add('visible');
 		presentHintTimer = setTimeout(hidePresentKeyHint, PRESENT_HINT_MS);
 	}, PRESENT_HINT_DELAY_MS);

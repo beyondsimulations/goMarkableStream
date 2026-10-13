@@ -31,6 +31,9 @@ type touchBlock struct {
 	nextID uint64
 	held   bool
 	letGo  *time.Timer // gives the panel back once the grace has passed
+	// letGoGen numbers the current letGo: a timer that fired just before it
+	// was stopped finds its number outdated and does nothing.
+	letGoGen uint64
 	// lastHolder is the page whose request ended last, while the panel
 	// stays taken: that page may still end the block at once.
 	lastHolder string
@@ -49,10 +52,7 @@ func (b *touchBlock) acquire(client string) (uint64, error) {
 			return 0, err
 		}
 	}
-	if b.letGo != nil {
-		b.letGo.Stop()
-		b.letGo = nil
-	}
+	b.stopLetGo()
 	if !b.held {
 		if err := b.grab(true); err != nil {
 			return 0, err
@@ -81,48 +81,56 @@ func (b *touchBlock) release(id uint64) {
 	delete(b.holds, id)
 	if len(b.holds) == 0 && b.held {
 		b.lastHolder = client
-		b.letGo = time.AfterFunc(blockGrace, b.giveBack)
+		b.letGoGen++
+		gen := b.letGoGen
+		b.letGo = time.AfterFunc(blockGrace, func() { b.giveBack(gen) })
 	}
 }
 
-// drop ends the holds of a page that turned the block off, and reports
-// whether other pages still hold the panel; without them the panel is given
-// back now, without the grace. A page that held nothing and was not the
-// last to let go changes nothing and learns nothing.
-func (b *touchBlock) drop(client string) (others bool) {
-	if client == "" {
-		return false
-	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	had := false
-	for id, c := range b.holds {
-		if c == client {
-			delete(b.holds, id)
-			had = true
-		}
-	}
-	if !had && b.lastHolder != client {
-		return false
-	}
-	if len(b.holds) > 0 {
-		return true
-	}
+// stopLetGo cancels a pending give-back, including one whose timer has
+// already fired and waits for b.mu; b.mu is held.
+func (b *touchBlock) stopLetGo() {
 	if b.letGo != nil {
 		b.letGo.Stop()
 		b.letGo = nil
 	}
+	b.letGoGen++
+}
+
+// drop ends the holds of a page that turned the block off, and reports
+// whether other pages still hold the panel. Without them, the panel is given
+// back now, without the grace, if this page held it or was the last to let
+// go; another page's turning off changes nothing it did not hold.
+func (b *touchBlock) drop(client string) (others bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	had := false
+	if client != "" {
+		for id, c := range b.holds {
+			if c == client {
+				delete(b.holds, id)
+				had = true
+			}
+		}
+	}
+	if len(b.holds) > 0 {
+		return true
+	}
+	if !had && (client == "" || b.lastHolder != client) {
+		return false
+	}
+	b.stopLetGo()
 	if b.held {
 		b.giveBackLocked()
 	}
 	return false
 }
 
-func (b *touchBlock) giveBack() {
+func (b *touchBlock) giveBack(gen uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if len(b.holds) > 0 || !b.held {
-		return // asked for again meanwhile
+	if gen != b.letGoGen || len(b.holds) > 0 || !b.held {
+		return // stopped, or asked for again meanwhile
 	}
 	b.letGo = nil
 	b.giveBackLocked()

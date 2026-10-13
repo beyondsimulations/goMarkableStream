@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/owulveryck/goMarkableStream/internal/events"
@@ -29,11 +30,56 @@ const (
 // panel from xochitl or gives it back (nil where it cannot); allowBlock, if
 // set, says why taking it is refused right now.
 func NewGestureHandler(inputEvents *pubsub.PubSub, geometry *remarkable.TouchGeometry, grabTouch func(bool) error, allowBlock func() error) *GestureHandler {
-	return &GestureHandler{
+	h := &GestureHandler{
 		inputEventBus: inputEvents,
 		geometry:      geometry,
 		block:         &touchBlock{grab: grabTouch, allow: allowBlock},
 	}
+	if geometry != nil {
+		go h.touch.follow(inputEvents)
+	}
+	return h
+}
+
+// touchState follows the panel's current slot and the slots with a finger
+// down, for the program's lifetime. The kernel reports both only when they
+// change, so a request that starts while a finger rests on the panel (after
+// a lease renewal or a change of view) starts from what is true now.
+type touchState struct {
+	mu   sync.Mutex
+	slot int32
+	live uint32
+}
+
+func (t *touchState) follow(bus *pubsub.PubSub) {
+	touchSource := events.Touch
+	absType := uint16(events.EvAbs)
+	eventC := bus.SubscribeWithFilter("touchState", pubsub.EventFilter{
+		Source: &touchSource,
+		Type:   &absType,
+	})
+	for event := range eventC {
+		t.mu.Lock()
+		switch event.Code {
+		case codeSlot:
+			t.slot = event.Value
+		case codeTrackingID:
+			if t.slot >= 0 && t.slot < 32 {
+				if event.Value >= 0 {
+					t.live |= 1 << t.slot
+				} else {
+					t.live &^= 1 << t.slot
+				}
+			}
+		}
+		t.mu.Unlock()
+	}
+}
+
+func (t *touchState) now() (slot int32, live uint32) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.slot, t.live
 }
 
 // GestureHandler is a http.Handler that detect touch gestures
@@ -41,6 +87,7 @@ type GestureHandler struct {
 	inputEventBus *pubsub.PubSub
 	geometry      *remarkable.TouchGeometry
 	block         *touchBlock
+	touch         touchState
 }
 
 // swipeMessage is one named swipe, for example {"swipe": "swipe-left"}.
@@ -144,7 +191,10 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tick := time.NewTicker(gestureMaxInterval)
 	defer tick.Stop()
 	tracker := &swipeTracker{}
-	reader := &swipeReader{geometry: h.geometry}
+	// Taken after subscribing: an event in between is counted twice, which
+	// leaves the slot and the fingers as they are.
+	slot, live := h.touch.now()
+	reader := &swipeReader{geometry: h.geometry, slot: slot, live: live}
 
 	enc := json.NewEncoder(w)
 	w.Header().Set("Content-Type", "application/x-ndjson")

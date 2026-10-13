@@ -197,6 +197,32 @@ func TestThrottleTakeoverGivesUp(t *testing.T) {
 	waitClosed(t, oldDone, "the old request")
 }
 
+// A takeover that gives up runs the idle cleanup the old request skipped
+// for it, so the frame buffers do not stay allocated.
+func TestThrottleTakeoverThatGivesUpCleansUp(t *testing.T) {
+	var idle int
+	SetOnIdleCallback(func() { idle++ })
+	defer SetOnIdleCallback(nil)
+
+	newCtx, cancelNew := context.WithCancel(context.Background())
+	started := make(chan string, 1)
+	_, cancelOld, oldDone := openStream("page-a", func(w http.ResponseWriter, r *http.Request) {
+		started <- "old"
+		<-r.Context().Done()
+		cancelNew() // the new request's page goes away just as this one ends
+	})
+	defer cancelOld()
+	<-started
+
+	ThrottlingMiddleware(untilEnded(started)).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/stream?client=page-a", nil).WithContext(newCtx))
+	waitClosed(t, oldDone, "the old request")
+	mu.Lock()
+	defer mu.Unlock()
+	if idle != 1 || activeWriters != 0 {
+		t.Fatalf("idle cleanups %d, active writers %d; want 1 and 0", idle, activeWriters)
+	}
+}
+
 // A panic in the stream handler frees the stream for the next request.
 func TestThrottleReleasesAfterPanic(t *testing.T) {
 	func() {

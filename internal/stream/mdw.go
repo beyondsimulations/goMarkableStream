@@ -75,19 +75,29 @@ func ThrottlingMiddleware(next http.Handler) http.Handler {
 		client := r.URL.Query().Get("client")
 		mu.Lock()
 		debug.Log("Throttle: connection from %s, activeWriters=%d", r.RemoteAddr, activeWriters)
+		tookOver := false
 		if activeWriters >= maxWriters && client != "" && client == holderClient && holderCancel != nil && reservedFor == "" {
 			log.Printf("Stream: %s opened the stream again, ending its previous connection", r.RemoteAddr)
 			reservedFor = client
 			holderCancel()
 			waitForWriters(r.Context(), takeoverWait)
 			reservedFor = ""
+			tookOver = true
+		}
+		// A takeover that gives up runs the idle cleanup the old request
+		// skipped for it, if the stream is free now.
+		giveUp := func() {
+			if tookOver && activeWriters == 0 && reservedFor == "" && onIdleCallback != nil {
+				onIdleCallback()
+			}
+			mu.Unlock()
 		}
 		if r.Context().Err() != nil {
-			mu.Unlock()
+			giveUp()
 			return // gave up waiting
 		}
 		if activeWriters >= maxWriters || (reservedFor != "" && reservedFor != client) {
-			mu.Unlock()
+			giveUp()
 			debug.Log("Throttle: too many requests, rejecting (%s)", r.RemoteAddr)
 			// If too many requests, send a 429 status code
 			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)

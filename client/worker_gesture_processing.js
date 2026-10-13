@@ -21,12 +21,15 @@ let controller = null;
 let retryDelay = 1000;
 
 // The reMarkable 2 sends direction totals, which checkSwipeDirection names;
-// this gives them the names the Paper Pro sends. Each legacy name stands for
-// its two totals: "topleft-to-bottomright" is left and down, a move down
-// and to the left.
+// this gives them the names the Paper Pro sends, chosen so each one keeps the
+// action it had upstream: 'left' the previous slide, 'right' the next one,
+// 'topleft-to-bottomright' the next, 'topright-to-bottomleft' the previous,
+// 'bottomleft-to-topright' content on top, 'bottomright-to-topleft' drawing
+// on top. (Which way the fingers move for each total has not been checked
+// on a reMarkable 2.)
 const LEGACY_SWIPES = {
-	'left': 'swipe-left',
-	'right': 'swipe-right',
+	'left': 'swipe-right',
+	'right': 'swipe-left',
 	'up': 'swipe-up',
 	'down': 'swipe-down',
 	'topleft-to-bottomright': 'swipe-down-left',

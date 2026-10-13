@@ -62,8 +62,8 @@ func TestSwipeSeenAs(t *testing.T) {
 		g          gesture
 		name, does string
 	}{
-		{gesture{leftDistance: 500}, "left", "next slide"},
-		{gesture{rightDistance: 500, upDistance: 99}, "right", "previous slide"},
+		{gesture{leftDistance: 500}, "left", "previous slide"},
+		{gesture{rightDistance: 500, upDistance: 99}, "right", "next slide"},
 		{gesture{rightDistance: 500, upDistance: 100}, "none", "nothing"},
 		{gesture{rightDistance: 400}, "none", "nothing"},
 		{gesture{upDistance: 401}, "up", "nothing"},
@@ -133,7 +133,7 @@ func TestGestureLogLine(t *testing.T) {
 		"code 54: 1000 -> 500 (range 500..1000)",
 		"code 53: 500 -> 520 (range 500..520)",
 		"sent left=0 right=500 up=0 down=20",
-		"browser: right (previous slide)",
+		"browser: right (next slide)",
 	} {
 		if !strings.Contains(line, want) {
 			t.Errorf("log line lacks %q:\n%s", want, line)
@@ -163,7 +163,7 @@ func TestLogGesturesOneLinePerGesture(t *testing.T) {
 	for _, ev := range swipe(1000, 500, 60, 0, 10) {
 		eventC <- ev
 	}
-	if line := next(); !strings.Contains(line, "browser: left (next slide)") || !strings.Contains(line, "slots [0]") {
+	if line := next(); !strings.Contains(line, "browser: left (previous slide)") || !strings.Contains(line, "slots [0]") {
 		t.Errorf("first gesture: %s", line)
 	}
 
@@ -172,7 +172,7 @@ func TestLogGesturesOneLinePerGesture(t *testing.T) {
 	for _, ev := range swipe(1000, 500, -60, 0, 10) {
 		eventC <- ev
 	}
-	if line := next(); !strings.Contains(line, "browser: right (previous slide)") || !strings.Contains(line, "slots [1]") {
+	if line := next(); !strings.Contains(line, "browser: right (next slide)") || !strings.Contains(line, "slots [1]") {
 		t.Errorf("second gesture: %s", line)
 	}
 

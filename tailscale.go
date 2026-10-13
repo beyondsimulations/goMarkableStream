@@ -193,6 +193,14 @@ func (tm *TailscaleManager) UseTLS() bool {
 	return false
 }
 
+// FunnelEnabled reports whether Funnel is on, from the stored state: no call
+// to Tailscale, which can fail or take long.
+func (tm *TailscaleManager) FunnelEnabled() bool {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	return tm.funnelEnabled
+}
+
 // GetFunnelInfo returns current funnel status and URL
 func (tm *TailscaleManager) GetFunnelInfo() (enabled bool, url string, err error) {
 	tm.mu.Lock()
