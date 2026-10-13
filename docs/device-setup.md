@@ -8,10 +8,11 @@ stuck.
 Over USB the tablet is always `10.11.99.1`. Both tablets use that address,
 so connect one at a time.
 
-Unless a step says otherwise, run the commands **on the Mac**: the prompt
-reads `tobi@MacBook-Air-15-Tobi ~ %`. If it reads `root@imx93-chiappa:~#`,
-you are logged into the tablet; type `exit` first. (On the tablet, a name
-like `move` fails with "Temporary failure in name resolution".)
+Run the commands **on the Mac**: its prompt shows your user and Mac and
+ends with `%`. A prompt like `root@imx93-…:~#` (starting with `root@`,
+ending with `#`) means you are logged into the tablet: type `exit` first.
+On the tablet, a name like `move` fails with "Temporary failure in name
+resolution". Commands meant for the tablet are written as `ssh move '…'`.
 
 ## 1. USB network on the Mac
 
@@ -29,16 +30,17 @@ networksetup -listallhardwareports
 networksetup -listallnetworkservices
 ```
 
-The tablet shows up under its own name (for example `Paper Pro Move`, on a
-device such as `en9`; the number can differ).
+The tablet shows up as a hardware port with its own name (for example
+`Hardware Port: Paper Pro Move`, `Device: en9`; the number can differ).
 
-- Listed with a `*` in front: it is disabled. Turn it on:
+- Listed among the services with a `*` in front: it is disabled. Turn it on:
   ```
   sudo networksetup -setnetworkserviceenabled "Paper Pro Move" on
   ```
-- Not listed at all: create it, with the device name from the first list:
+- Not among the services at all: create one for that hardware port (the
+  `Hardware Port:` name from the first list) and let it ask for an address:
   ```
-  sudo networksetup -createnetworkservice "Paper Pro Move" en9
+  sudo networksetup -createnetworkservice "Paper Pro Move" "Paper Pro Move"
   sudo networksetup -setdhcp "Paper Pro Move"
   ```
 
@@ -61,8 +63,7 @@ network.
 
 ## 2. Logging in without a password
 
-The tablet's ssh server (dropbear) accepts SSH keys. Do this once per
-tablet, with that tablet connected by USB.
+The tablet's ssh server (dropbear) accepts SSH keys.
 
 **Create a key on the Mac** (once):
 
@@ -70,27 +71,16 @@ tablet, with that tablet connected by USB.
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_remarkable -C "remarkable"
 ```
 
-**Copy it to the tablet.** This asks for the tablet's root password one
-last time:
+**Give each tablet a short name** (once). `~/.ssh/config` is a text file to
+edit, not a command to run, and it needs no `sudo` (a copy owned by root
+would stop ssh from reading it). Paste this into the terminal: it puts both
+entries at the top of the file, where ssh looks first, and does nothing if
+they are already there.
 
 ```
-ssh-copy-id -i ~/.ssh/id_ed25519_remarkable.pub root@10.11.99.1
-```
-
-If `ssh-copy-id` complains, this does the same by hand:
-
-```
-cat ~/.ssh/id_ed25519_remarkable.pub | ssh root@10.11.99.1 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
-```
-
-**Give each tablet a short name.** `~/.ssh/config` is a text file to edit,
-not a command to run, and it needs no `sudo` (a copy owned by root would
-stop ssh from reading it). Paste this into the terminal to add both
-entries:
-
-```
-mkdir -p ~/.ssh && cat >> ~/.ssh/config <<'EOF'
-
+grep -q '^Host move$' ~/.ssh/config 2>/dev/null || {
+  mkdir -p ~/.ssh
+  cat > /tmp/remarkable-ssh <<'END'
 Host move
     HostName 10.11.99.1
     User root
@@ -104,13 +94,33 @@ Host pro
     IdentityFile ~/.ssh/id_ed25519_remarkable
     IdentitiesOnly yes
     HostKeyAlias remarkable-pro
-EOF
-chmod 600 ~/.ssh/config
+
+END
+  [ -f ~/.ssh/config ] && cat ~/.ssh/config >> /tmp/remarkable-ssh
+  mv /tmp/remarkable-ssh ~/.ssh/config
+  chmod 600 ~/.ssh/config
+}
 ```
 
 `HostKeyAlias` keeps the two tablets apart: without it, ssh warns
 "REMOTE HOST IDENTIFICATION HAS CHANGED" each time you switch, because both
-use the same address.
+use the same address. Check the result with `cat ~/.ssh/config`: if an
+older `Host move` block sits further down from an earlier attempt, delete
+it (`nano ~/.ssh/config`).
+
+**Copy the key to each tablet**, with that tablet connected by USB. This
+asks for the tablet's root password one last time:
+
+```
+ssh-copy-id -i ~/.ssh/id_ed25519_remarkable.pub move
+```
+
+For the Paper Pro, connect it and use `pro` instead of `move`. If
+`ssh-copy-id` complains, this does the same by hand:
+
+```
+cat ~/.ssh/id_ed25519_remarkable.pub | ssh move 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
+```
 
 **Test it:** `ssh move` (or `ssh pro`) logs in without a password.
 
@@ -136,21 +146,31 @@ curl -L -o ~/Downloads/goMarkableStream-rmpp https://github.com/beyondsimulation
 for the Paper Pro. The release notes list their SHA-256
 (`shasum -a 256 ~/Downloads/goMarkableStream-*`).
 
-**Copy, stop the old one, start the new one, show its log** (Paper Pro
+**Stop the old one, copy the new one, start it, show its log** (Paper Pro
 Move; for the Paper Pro use `pro` and `goMarkableStream-rmpp`):
 
 ```
-scp ~/Downloads/goMarkableStream-RMMOVE move: && ssh move 'pkill -f goMarkableStream; chmod +x goMarkableStream-RMMOVE && RK_DEBUG_GESTURES=true nohup ./goMarkableStream-RMMOVE > gms.log 2>&1 &' && ssh move 'tail -f gms.log'
+ssh move 'pkill -f "[g]oMarkableStream"; while pgrep -f "[g]oMarkableStream" > /dev/null; do sleep 0.5; done' \
+  && scp ~/Downloads/goMarkableStream-RMMOVE move: \
+  && ssh move 'chmod +x goMarkableStream-RMMOVE && RK_DEBUG_GESTURES=true nohup ./goMarkableStream-RMMOVE > gms.log 2>&1 < /dev/null &' \
+  && ssh move 'tail -f gms.log'
 ```
 
+- The old one is stopped first and waited for (it takes up to a few seconds
+  to shut down): a running program's file cannot be overwritten ("Text file
+  busy"), and two would share the log.
+- `"[g]oMarkableStream"` matches the program but not the command line that
+  stops it, which contains the brackets.
 - `nohup … &` keeps it running when the ssh connection drops (a program
   started in the foreground of an ssh session stops with it), and the log
   stays in `/home/root/gms.log`.
 - Ctrl-C only ends `tail`, not the program.
 - `RK_DEBUG_GESTURES=true` logs every touch gesture and the touch panel at
   startup; leave it out for normal use.
-- Stop it: `ssh move 'pkill -f goMarkableStream'`.
-- Is it running? `ssh move 'ps | grep [g]oMarkableStream'`.
+- Stop it: `ssh move 'pkill -f "[g]oMarkableStream"'`.
+- Is it running? `ssh move 'ps | grep "[g]oMarkableStream"'`.
+- If `scp` fails with "subsystem request failed", add `-O` (the older copy
+  protocol).
 - Do not run `./goMarkableStream download`: it fetches the upstream
   releases, not this fork's.
 
@@ -196,7 +216,8 @@ slides, click the control bar at the bottom first.
    still writes.
 4. Press `I` again: "The tablet reacts to your fingers again", log
    `Touch: the tablet reacts to finger input again`.
-5. `W`, `Z`, and the one-time key hint (`W Z I L F`).
+5. `W`, `Z`, and the key hint (`W Z I L F`). It shows once per browser:
+   use a private window to see it again.
 6. On the Paper Pro also: swipes in portrait and, after `R`, in landscape.
 
 When both tablets pass, tag a version; GitHub builds its release:
@@ -211,8 +232,8 @@ git tag v1.0.0 && git push origin v1.0.0
 
 - `ping -c 3 10.11.99.1`: no answer means the USB network is down (see
   section 1), or the tablet is asleep.
-- `ssh move 'ps | grep [g]oMarkableStream'`: nothing means goMarkableStream
-  is not running. Start it again (section 3).
+- `ssh move 'ps | grep "[g]oMarkableStream"'`: nothing means
+  goMarkableStream is not running. Start it again (section 3).
 - The address needs `https://`.
 
 **The tablet does not react.**
@@ -228,8 +249,8 @@ git tag v1.0.0 && git push origin v1.0.0
 **What happened?** The tablet keeps its system log across restarts:
 
 ```
-journalctl --list-boots | tail -3
-journalctl -b -1 --no-pager | tail -n 150
+ssh move 'journalctl --list-boots | tail -3'
+ssh move 'journalctl -b -1 --no-pager | tail -n 150'
 ```
 
 `-b -1` is the run before the last restart. In it:
@@ -243,7 +264,7 @@ journalctl -b -1 --no-pager | tail -n 150
   real crash.
 
 goMarkableStream's own messages are in `/home/root/gms.log` when it was
-started as in section 3.
+started as in section 3: `ssh move 'tail -n 100 gms.log'`.
 
 **"Another connection has the stream".** Another page (a second tab, a
 phone) shows the stream; only one at a time does. Close it, and this page
