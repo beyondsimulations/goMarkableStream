@@ -156,10 +156,11 @@ ssh move 'grep -ls goMarkableStrea /proc/[0-9]*/comm'
 A line like `/proc/1234/comm` means it runs (1234 is its process number);
 no output means it does not.
 
-**Stop it** and wait until it has ended (a few seconds at most):
+**Stop it.** The line returns once it has ended: up to about 10 seconds
+while a page shows the stream, and after 15 seconds it is forced to end.
 
 ```
-ssh move 'for p in $(grep -ls goMarkableStrea /proc/[0-9]*/comm); do p=${p%/comm}; kill ${p#/proc/}; done; while grep -qs goMarkableStrea /proc/[0-9]*/comm; do sleep 1; done'
+ssh move 'k() { for p in $(grep -ls goMarkableStrea /proc/[0-9]*/comm); do p=${p%/comm}; kill $1 ${p#/proc/}; done; }; k; i=0; while grep -qs goMarkableStrea /proc/[0-9]*/comm; do i=$((i+1)); [ $i = 15 ] && k -9; sleep 1; done'
 ```
 
 - The tablet has no `pkill` or `pgrep`, so both lines ask the kernel
@@ -167,22 +168,23 @@ ssh move 'for p in $(grep -ls goMarkableStrea /proc/[0-9]*/comm); do p=${p%/comm
   program, cut to 15 characters. `goMarkableStrea` is the start of both
   binaries' names. The shell running the line and `grep` have their own
   names, so the line does not find (or stop) itself.
-- If you installed the service (section 3b), stop it with
+- If you installed the service (section 3b), use
   `ssh move 'systemctl stop goMarkableStream'` instead.
 
-**Stop the old one, copy the new one, start it, show its log** (for the
-Paper Pro use `pro` and `goMarkableStream-rmpp`):
+**Copy it, start it, show its log** (for the Paper Pro use `pro` and
+`goMarkableStream-rmpp`). To update, stop the old one first (above). With
+the service, update as in section 3b instead: a copy started here does not
+read the service's settings file, so it would run with the default login.
 
 ```
-ssh move 'for p in $(grep -ls goMarkableStrea /proc/[0-9]*/comm); do p=${p%/comm}; kill ${p#/proc/}; done; while grep -qs goMarkableStrea /proc/[0-9]*/comm; do sleep 1; done' \
-  && scp ~/Downloads/goMarkableStream-RMMOVE move: \
+scp ~/Downloads/goMarkableStream-RMMOVE move: \
   && ssh move 'chmod +x goMarkableStream-RMMOVE && RK_DEBUG_GESTURES=true nohup ./goMarkableStream-RMMOVE > gms.log 2>&1 < /dev/null &' \
   && ssh move 'tail -f gms.log'
 ```
 
-- The old one is stopped first and waited for (it takes up to a few seconds
-  to shut down): a running program's file cannot be overwritten ("Text file
-  busy"), and two would share the log.
+- `scp` fails with `dest open "./goMarkableStream-RMMOVE": Failure` while
+  the old one still runs (a running program's file cannot be overwritten):
+  stop it and copy again.
 - `nohup … &` keeps it running when the ssh connection drops (a program
   started in the foreground of an ssh session stops with it), and the log
   stays in `/home/root/gms.log`.
@@ -210,11 +212,12 @@ ssh move 'for p in $(grep -ls goMarkableStrea /proc/[0-9]*/comm); do p=${p%/comm
 ## 3b. Running it all the time
 
 goMarkableStream can run as a system service: it starts when the tablet
-starts and again after a crash. Stop a running one first (section 3, **Stop
-it**), then install it from the copied binary:
+starts and again after a crash. Install it from the copied binary; the
+line first stops a copy you started by hand (as in section 3, **Stop it**),
+which would otherwise hold the port and keep the service restarting:
 
 ```
-ssh move './goMarkableStream-RMMOVE install'
+ssh move 'k() { for p in $(grep -ls goMarkableStrea /proc/[0-9]*/comm); do p=${p%/comm}; kill $1 ${p#/proc/}; done; }; k; i=0; while grep -qs goMarkableStrea /proc/[0-9]*/comm; do i=$((i+1)); [ $i = 15 ] && k -9; sleep 1; done; ./goMarkableStream-RMMOVE install'
 ```
 
 This writes `/etc/systemd/system/goMarkableStream.service` (pointing at
@@ -306,7 +309,9 @@ git tag v1.0.0 && git push origin v1.0.0
 - `ping -c 3 10.11.99.1`: no answer means the USB network is down (see
   section 1), or the tablet is asleep.
 - `ssh move 'grep -ls goMarkableStrea /proc/[0-9]*/comm'`: nothing means
-  goMarkableStream is not running. Start it again (section 3).
+  goMarkableStream is not running. Start it again (section 3). With the
+  service, see why it stopped (`systemctl status` and `journalctl`, as in
+  section 3b) and start it with `systemctl start goMarkableStream`.
 - The address needs `https://`.
 
 **The tablet does not react.**
