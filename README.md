@@ -16,6 +16,8 @@
 >
 > Not checked on a device yet: the Paper Pro's touch panel is assumed to lie like the Move's, which was measured.
 >
+> **Working with the tablets:** USB network on a Mac, logging in with an SSH key, installing and starting goMarkableStream, testing a build and what to do when the tablet seems stuck: [docs/device-setup.md](docs/device-setup.md).
+>
 > **Binaries of this fork:** every change merged into `main` is built by GitHub Actions ([fork-binaries.yml](.github/workflows/fork-binaries.yml)) and published as the [Latest build](https://github.com/beyondsimulations/goMarkableStream/releases/tag/latest-main) pre-release: [`goMarkableStream-rmpp`](https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-rmpp) for the Paper Pro and [`goMarkableStream-RMMOVE`](https://github.com/beyondsimulations/goMarkableStream/releases/download/latest-main/goMarkableStream-RMMOVE) for the Paper Pro Move (linux/arm64, without Tailscale; the release notes list their SHA-256). To mark a version, push a tag such as `v1.0.0` (`git tag v1.0.0 && git push origin v1.0.0`): it gets a release of its own with the same two files. This fork publishes only these two builds; for the reMarkable 2 and the AppLoad console, use the upstream releases. The `download` subcommand fetches the upstream releases, not these.
 >
 > The MIT licence and Olivier Wulveryck's copyright stay as they are (see [License](#license)).
