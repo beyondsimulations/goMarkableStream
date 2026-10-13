@@ -144,6 +144,11 @@ func (h *GestureHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tick := time.NewTicker(gestureMaxInterval)
 	defer tick.Stop()
 	tracker := &swipeTracker{}
+	// Each request reads from what it sees: a finger that rests on the panel
+	// since before the request (a lease renewal, a change of view) counts
+	// only once it moves or lifts. Carrying the state across requests would
+	// need it in event order, and one lost lift would then block swipes for
+	// good; a request's state lasts at most one lease.
 	reader := &swipeReader{geometry: h.geometry}
 
 	enc := json.NewEncoder(w)

@@ -75,14 +75,21 @@ func ThrottlingMiddleware(next http.Handler) http.Handler {
 		client := r.URL.Query().Get("client")
 		mu.Lock()
 		debug.Log("Throttle: connection from %s, activeWriters=%d", r.RemoteAddr, activeWriters)
+		tookOver := false
 		if activeWriters >= maxWriters && client != "" && client == holderClient && holderCancel != nil && reservedFor == "" {
 			log.Printf("Stream: %s opened the stream again, ending its previous connection", r.RemoteAddr)
 			reservedFor = client
 			holderCancel()
 			waitForWriters(r.Context(), takeoverWait)
 			reservedFor = ""
+			tookOver = true
 		}
 		if r.Context().Err() != nil {
+			// A takeover that gives up runs the idle cleanup the old request
+			// skipped for it, if the stream is free now.
+			if tookOver && activeWriters == 0 && onIdleCallback != nil {
+				onIdleCallback()
+			}
 			mu.Unlock()
 			return // gave up waiting
 		}

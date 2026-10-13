@@ -62,8 +62,8 @@ func TestSwipeSeenAs(t *testing.T) {
 		g          gesture
 		name, does string
 	}{
-		{gesture{leftDistance: 500}, "left", "next slide"},
-		{gesture{rightDistance: 500, upDistance: 99}, "right", "previous slide"},
+		{gesture{leftDistance: 500}, "left", "previous slide"},
+		{gesture{rightDistance: 500, upDistance: 99}, "right", "next slide"},
 		{gesture{rightDistance: 500, upDistance: 100}, "none", "nothing"},
 		{gesture{rightDistance: 400}, "none", "nothing"},
 		{gesture{upDistance: 401}, "up", "nothing"},
@@ -119,6 +119,45 @@ func TestSwipeRulesMatchClient(t *testing.T) {
 	}
 }
 
+// The log's actions are what the browser does with each name: the worker's
+// LEGACY_SWIPES gives the swipe, the page's SWIPE_ACTIONS its action.
+func TestSwipeRuleActionsMatchClient(t *testing.T) {
+	worker, err := os.ReadFile("../../client/worker_gesture_processing.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := os.ReadFile("../../client/workersHandling.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := map[string]string{}
+	for _, m := range regexp.MustCompile(`'([a-z-]+)': '(swipe-[a-z-]+)'`).FindAllStringSubmatch(string(worker), -1) {
+		legacy[m[1]] = m[2]
+	}
+	actions := map[string]string{}
+	words := map[string]string{
+		"sendSlideCommand('next')": "next slide",
+		"sendSlideCommand('prev')": "previous slide",
+		"swipeLayer(true)":         "content on top",
+		"swipeLayer(false)":        "drawing on top",
+	}
+	for _, m := range regexp.MustCompile(`'(swipe-[a-z-]+)': \(\) => ([a-zA-Z]+\([^)]*\))`).FindAllStringSubmatch(string(page), -1) {
+		actions[m[1]] = words[m[2]]
+	}
+	if len(legacy) != 8 || len(actions) != 6 {
+		t.Fatalf("could not read the client: %d legacy names, %d actions", len(legacy), len(actions))
+	}
+	for _, r := range swipeRules {
+		want := actions[legacy[r.name]]
+		if want == "" {
+			want = "nothing"
+		}
+		if r.action != want {
+			t.Errorf("%s: the log says %q, the browser does %q", r.name, r.action, want)
+		}
+	}
+}
+
 func TestGestureLogLine(t *testing.T) {
 	var g gestureLog
 	start := time.Unix(0, 0)
@@ -133,7 +172,7 @@ func TestGestureLogLine(t *testing.T) {
 		"code 54: 1000 -> 500 (range 500..1000)",
 		"code 53: 500 -> 520 (range 500..520)",
 		"sent left=0 right=500 up=0 down=20",
-		"browser: right (previous slide)",
+		"browser: right (next slide)",
 	} {
 		if !strings.Contains(line, want) {
 			t.Errorf("log line lacks %q:\n%s", want, line)
@@ -163,7 +202,7 @@ func TestLogGesturesOneLinePerGesture(t *testing.T) {
 	for _, ev := range swipe(1000, 500, 60, 0, 10) {
 		eventC <- ev
 	}
-	if line := next(); !strings.Contains(line, "browser: left (next slide)") || !strings.Contains(line, "slots [0]") {
+	if line := next(); !strings.Contains(line, "browser: left (previous slide)") || !strings.Contains(line, "slots [0]") {
 		t.Errorf("first gesture: %s", line)
 	}
 
@@ -172,7 +211,7 @@ func TestLogGesturesOneLinePerGesture(t *testing.T) {
 	for _, ev := range swipe(1000, 500, -60, 0, 10) {
 		eventC <- ev
 	}
-	if line := next(); !strings.Contains(line, "browser: right (previous slide)") || !strings.Contains(line, "slots [1]") {
+	if line := next(); !strings.Contains(line, "browser: right (next slide)") || !strings.Contains(line, "slots [1]") {
 		t.Errorf("second gesture: %s", line)
 	}
 

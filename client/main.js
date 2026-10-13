@@ -3,12 +3,7 @@ let laserEnabled = true;
 let portrait = getQueryParam('portrait');
 portrait = portrait !== null ? portrait === 'true' : false;
 
-defaultFlip = false;
-// If this is the Paper Pro, we don't need to flip the image.
-if (DeviceModel === 'RemarkablePaperPro' || DeviceModel === 'RemarkablePaperProMove') {
-	defaultFlip = false;
-}
-let flip = getBoolQueryParam('flip', defaultFlip);
+let flip = getBoolQueryParam('flip', false);
 
 // How far, clockwise, the view turns the tablet's portrait page: the R key
 // turns it by 90 degrees, ?flip=true by 180. Swipes are read the same way.

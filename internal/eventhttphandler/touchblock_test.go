@@ -198,22 +198,43 @@ func TestTouchBlockOldReleaseKeepsNewHold(t *testing.T) {
 	}
 }
 
-// Only a page that blocked the panel may end it early or hear about others:
-// another page's unblock neither cuts the grace short nor learns anything.
-func TestTouchBlockDropByStranger(t *testing.T) {
+// Every page hears whether another page holds the panel (so it does not say
+// "reacts again" while one does), but only a page that blocked it, or was
+// the last to let go, can end the block early.
+func TestTouchBlockDropByOtherPage(t *testing.T) {
 	shortTimes(t, time.Minute, time.Hour)
 	g := &fakeGrab{}
 	b := &touchBlock{grab: g.grab}
 	held := mustAcquire(t, b, "page-a")
-	if b.drop("page-x") || b.drop("") {
-		t.Fatal("a stranger learned that another page holds the panel")
+	if !b.drop("page-x") || !b.drop("") {
+		t.Fatal("another page was told no one holds the panel")
+	}
+	if len(g.seen()) != 1 {
+		t.Fatalf("another page's turning off changed the block: %v", g.seen())
 	}
 	b.release(held) // the grace starts, with page-a as the last holder
-	if b.drop("page-x") || len(g.seen()) != 1 {
-		t.Fatalf("a stranger cut the grace short: %v", g.seen())
+	if !b.drop("page-x") || len(g.seen()) != 1 {
+		t.Fatalf("during page-a's grace another page was told no one holds the panel, or cut the grace short: %v", g.seen())
 	}
 	if b.drop("page-a") || !reflect.DeepEqual(g.seen(), []bool{true, false}) {
 		t.Fatalf("the last holder could not end the grace: %v", g.seen())
+	}
+}
+
+// A give-back whose timer fired just as a new hold stopped it (it then waits
+// for the lock) finds its number outdated and leaves the panel taken.
+func TestTouchBlockStaleGiveBack(t *testing.T) {
+	shortTimes(t, time.Minute, time.Hour)
+	g := &fakeGrab{}
+	b := &touchBlock{grab: g.grab}
+	b.release(mustAcquire(t, b, "page-a"))
+	b.mu.Lock()
+	stale := b.letGoGen // the first timer's number
+	b.mu.Unlock()
+	b.release(mustAcquire(t, b, "page-a")) // stopped it, then a new grace
+	b.giveBack(stale)
+	if got := g.seen(); !reflect.DeepEqual(got, []bool{true}) {
+		t.Fatalf("a stopped timer gave the panel back: %v", got)
 	}
 }
 

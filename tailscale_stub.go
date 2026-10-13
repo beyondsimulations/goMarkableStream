@@ -30,6 +30,11 @@ func (tm *TailscaleManager) GetFunnelInfo() (bool, string, error) {
 	return false, "", nil
 }
 
+// FunnelEnabled is a stub that returns false when Tailscale is not compiled in
+func (tm *TailscaleManager) FunnelEnabled() bool {
+	return false
+}
+
 // ToggleFunnel is a stub that returns nil when Tailscale is not compiled in
 func (tm *TailscaleManager) ToggleFunnel(enable bool) (net.Listener, error) {
 	return nil, nil

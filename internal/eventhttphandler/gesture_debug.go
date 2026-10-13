@@ -124,8 +124,8 @@ type swipeRule struct {
 // swipeRules mirrors checkSwipeDirection (TestSwipeRulesMatchClient checks
 // it) and the actions in client/workersHandling.js, for the log only.
 var swipeRules = []swipeRule{
-	{name: "left", action: "next slide", minLeft: 400, maxRight: 100, maxUp: 100, maxDown: 100},
-	{name: "right", action: "previous slide", minRight: 400, maxLeft: 100, maxUp: 100, maxDown: 100},
+	{name: "left", action: "previous slide", minLeft: 400, maxRight: 100, maxUp: 100, maxDown: 100},
+	{name: "right", action: "next slide", minRight: 400, maxLeft: 100, maxUp: 100, maxDown: 100},
 	{name: "up", action: "nothing", minUp: 400, maxRight: 100, maxLeft: 100, maxDown: 100},
 	{name: "down", action: "nothing", minDown: 400, maxRight: 100, maxUp: 100, maxLeft: 100},
 	{name: "topright-to-bottomleft", action: "previous slide", minRight: 600, minDown: 600, maxUp: 50, maxLeft: 50},

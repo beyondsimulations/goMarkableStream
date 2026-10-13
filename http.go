@@ -63,10 +63,7 @@ func setMuxer(eventPublisher *pubsub.PubSub, touchGeometry *remarkable.TouchGeom
 	gestureHandler := eventhttphandler.NewGestureHandler(eventPublisher, touchGeometry, grabTouch, func() error {
 		// Shared publicly (Funnel), any viewer could take the tablet's touch
 		// away from its owner, and their requests look like the owner's.
-		if tm == nil {
-			return nil
-		}
-		if enabled, _, _ := tm.GetFunnelInfo(); enabled {
+		if tm != nil && tm.FunnelEnabled() {
 			return errors.New("not available while the stream is shared publicly (Funnel)")
 		}
 		return nil
