@@ -6,9 +6,13 @@ let reconnectTimeout = null;
 let isReconnecting = false;
 // Refusals in a row (429: another connection holds the stream).
 let rateLimitedRetries = 0;
-// When the stream last started over because a frame could not be applied.
-const STREAM_RESYNC_MIN_INTERVAL_MS = 5000;
+// Fresh starts after a frame that could not be applied: the first is at once,
+// each further one within a minute of the last waits longer (1s, 2s, 4s, up
+// to 30s), so a failure that keeps coming back cannot pull a full frame every
+// few seconds.
+const STREAM_RESYNC_STREAK_MS = 60000;
 let lastStreamResync = 0;
+let streamResyncStreak = 0;
 
 // Names this page to the server, so the stream it opens again after a lost
 // connection replaces its own old one, which the server may not have
@@ -123,21 +127,19 @@ function handleStreamMessage(event) {
 			const frameData = event.data.data;
 			updateTexture(frameData, portrait, 1);
 			break;
-		case 'resync':
-			// The page's copy of the screen fell out of step: start over at
-			// once with a full frame. A second time within a few seconds means
-			// something keeps failing, so the usual reconnect with its backoff
-			// takes over.
+		case 'resync': {
+			// The page's copy of the screen fell out of step: start over with
+			// a full frame. The connection itself is fine, so no reconnect
+			// banner and no reconnect attempt counted.
 			console.warn('Stream resync:', data.message);
-			if (Date.now() - lastStreamResync < STREAM_RESYNC_MIN_INTERVAL_MS) {
-				if (!isReconnecting) {
-					attemptStreamReconnect();
-				}
-			} else {
-				lastStreamResync = Date.now();
-				restartStreamWorker();
-			}
+			const now = Date.now();
+			streamResyncStreak = now - lastStreamResync < STREAM_RESYNC_STREAK_MS ? streamResyncStreak + 1 : 0;
+			lastStreamResync = now;
+			const delay = streamResyncStreak === 0 ? 0 : backoffDelay(streamResyncStreak - 1, 30000);
+			clearTimeout(reconnectTimeout);
+			reconnectTimeout = setTimeout(restartStreamWorker, delay);
 			break;
+		}
 		case 'error':
 			console.error('Error from worker:', event.data.message);
 

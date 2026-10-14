@@ -555,8 +555,7 @@ func (e *Encoder) calculateDeltaSize(runs []changeRun) int {
 			size += 1 + 2 + len(run.data)
 		} else {
 			// Long runs: 2 bytes length + 3 bytes offset each, + pixel data
-			pieces := (run.length + maxLongLength - 1) / maxLongLength
-			size += pieces*(2+3) + len(run.data)
+			size += longRunPieces(run.length)*(2+3) + len(run.data)
 		}
 	}
 	return size
@@ -686,21 +685,29 @@ func (e *Encoder) assembleDeltaFrame(runs []changeRun, payloadSize int) []byte {
 			copy(buf[pos:], run.data)
 			pos += len(run.data)
 		} else {
-			pos = appendLongRun(buf, pos, run.offset, run.data)
+			pos = appendLongRun(buf, pos, run.offset, run.length, run.data)
 		}
 	}
 
 	return buf[:pos]
 }
 
-// appendLongRun writes data as long runs into buf at pos and returns the new
-// position. A long run holds at most maxLongLength pixels, so a longer one is
-// split: the first piece carries the run's offset, the rest follow directly
-// (offset 0). Writing one oversized run instead would drop the length's high
-// bits, and the client would read the rest of the pixels as run headers.
-func appendLongRun(buf []byte, pos, offset int, data []byte) int {
-	for len(data) > 0 {
-		pixels := min(len(data)/bytesPerPixel, maxLongLength)
+// longRunPieces is how many long runs a run of length pixels goes out as;
+// calculateDeltaSize and appendLongRun both count with it.
+func longRunPieces(length int) int {
+	return max(1, (length+maxLongLength-1)/maxLongLength)
+}
+
+// appendLongRun writes a run of length pixels (data) as long runs into buf at
+// pos and returns the new position. A long run holds at most maxLongLength
+// pixels, so a longer one is split: the first piece carries the run's offset,
+// the rest follow directly (offset 0). Writing one oversized run instead would
+// drop the length's high bits, and the client would read the rest of the
+// pixels as run headers. It writes longRunPieces(length) headers and all of
+// data, as calculateDeltaSize counts.
+func appendLongRun(buf []byte, pos, offset, length int, data []byte) int {
+	for {
+		pixels := min(length, maxLongLength)
 		// Long run: 2 bytes length (0x80|high, low) + 3 bytes offset LE + pixel data
 		buf[pos] = 0x80 | byte((pixels>>8)&0x7F)
 		buf[pos+1] = byte(pixels & 0xFF)
@@ -708,11 +715,18 @@ func appendLongRun(buf []byte, pos, offset int, data []byte) int {
 		buf[pos+3] = byte((offset >> 8) & 0xFF)
 		buf[pos+4] = byte((offset >> 16) & 0xFF)
 		pos += 5
-		pos += copy(buf[pos:], data[:pixels*bytesPerPixel])
-		data = data[pixels*bytesPerPixel:]
+		n := pixels * bytesPerPixel
+		length -= pixels
+		if length == 0 {
+			n = len(data) // the last piece takes the rest
+		}
+		pos += copy(buf[pos:], data[:n])
+		data = data[n:]
 		offset = 0
+		if length == 0 {
+			return pos
+		}
 	}
-	return pos
 }
 
 // Reset clears the encoder state, forcing the next frame to be a full frame.

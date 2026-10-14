@@ -164,9 +164,6 @@ function requestResync(reason) {
 
 // Process delta-encoded data with frame header parsing
 async function processDeltaData(chunkData, imageData, pixelDataSize) {
-	if (desynced) {
-		return;
-	}
 
 	// Append new data to pending buffer
 	const newBuffer = new Uint8Array(pendingBuffer.length + chunkData.length);
@@ -209,6 +206,10 @@ async function processDeltaData(chunkData, imageData, pixelDataSize) {
 				return;
 			}
 			handleDeltaFrame(runs, imageData, pixelDataSize);
+		} else {
+			// Skipping it would leave the later deltas on a wrong picture.
+			requestResync('Unknown frame type ' + frameType);
+			return;
 		}
 	}
 }
@@ -226,18 +227,24 @@ async function handleFullFrame(payload, imageData, pixelDataSize, compressionTyp
 			return;
 		}
 	} else if (compressionType === 'gzip') {
-		// Decompress using DecompressionStream API (legacy support)
+		// Decompress using DecompressionStream API (legacy support). A
+		// failure rejects the reads; the writer's promises are left to that.
 		const ds = new DecompressionStream('gzip');
 		const writer = ds.writable.getWriter();
-		writer.write(payload);
-		writer.close();
+		writer.write(payload).catch(() => {});
+		writer.close().catch(() => {});
 
 		const reader = ds.readable.getReader();
 		const chunks = [];
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			chunks.push(value);
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				chunks.push(value);
+			}
+		} catch (err) {
+			requestResync('Gzip decompression failed: ' + err);
+			return;
 		}
 
 		// Concatenate chunks
