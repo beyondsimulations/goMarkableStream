@@ -228,6 +228,10 @@ document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
         return;
     }
+    // Nor behind an open popup (Present Slides), which handles its own keys.
+    if (document.querySelector('dialog[open]')) {
+        return;
+    }
 
     switch (e.key.toLowerCase()) {
         case 'f':

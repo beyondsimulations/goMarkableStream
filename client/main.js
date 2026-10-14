@@ -64,9 +64,11 @@ window.onload = async function() {
 		return; // Don't proceed until user logs in
 	}
 
-	// Function to get the value of a query parameter by name
-	// Get the 'present' parameter from the URL
-	const presentURL = getQueryParam('present');
+	// The deck to present (?present=), checked like an address pasted into
+	// Present Slides (slidesDialog.js): only web addresses, never a
+	// javascript: or data: one, which would run inside this page.
+	const presentParam = getQueryParam('present');
+	const presentURL = currentSlidesURL();
 
 	// Set the iframe source if the URL is available
 	if (presentURL) {
@@ -81,8 +83,11 @@ window.onload = async function() {
 		initPresentationChrome();
 	}
 
-	// Show onboarding hint for first-time users (presentation mode has its own)
-	if (!presentURL) {
+	if (presentParam && !presentURL) {
+		// Say what is wrong with it, ready to fix.
+		openSlidesDialog(presentParam, normalizeSlidesAddress(presentParam, window.location.protocol).error);
+	} else if (!presentURL) {
+		// Show onboarding hint for first-time users (presentation mode has its own)
 		showOnboardingHint();
 	}
 

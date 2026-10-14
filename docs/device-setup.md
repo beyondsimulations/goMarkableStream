@@ -204,8 +204,10 @@ scp ~/Downloads/goMarkableStream-RMMOVE move: \
   (close to 100% opaque, mostly white).
 - `Serving on [::]:2001`.
 
-**Open it in the browser:** `https://10.11.99.1:2001` (with `https`). Add
-`?present=<URL of the slides>` for a presentation. The login is
+**Open it in the browser:** `https://10.11.99.1:2001` (with `https`). For a
+presentation, choose **Present Slides…** in the sidebar and paste the
+address of the slides (the last five are listed there), or add
+`?present=<URL of the slides>` to the address. The login is
 `RK_SERVER_USERNAME` / `RK_SERVER_PASSWORD` (default `admin` /
 `password`).
 

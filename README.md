@@ -8,7 +8,7 @@
 > What is different here:
 > - **Paper Pro on firmware 3.25 and later:** the screen buffer is found by its size instead of its old position, so streaming starts again. If the picture is wrong, `RK_FB_CANDIDATE` picks another candidate (see [Device Configuration](#device-configuration)).
 > - **Paper Pro Move:** a separate `rmmove` build, based on Paul Bauriegel's work in [owulveryck/goMarkableStream#163](https://github.com/owulveryck/goMarkableStream/pull/163) (see [docs/paper-pro-move.md](docs/paper-pro-move.md)).
-> - **Presentation mode:** only the ink is drawn over the slides, `W` switches to a white board, and a small control bar appears only while the pointer moves (see [Presentation Mode](#presentation-mode)).
+> - **Presentation mode:** paste a deck's address in **Present Slides…** (the last five are one click away), only the ink is drawn over the slides, `W` switches to a white board, and a small control bar appears only while the pointer moves (see [Presentation Mode](#presentation-mode)).
 > - **A new look:** the web page follows the BeyondSimulations Family design, in light and dark, and respects Reduce Motion.
 > - **Fixes:** status messages show while streaming, and the help and menu fit on a phone.
 >
@@ -311,12 +311,12 @@ This feature is ideal for enhancing presentations or educational content by allo
 
 ### How It Works
 
-- To use this feature, append `?present=https://url-of-the-embedded-file` to your streaming URL.
+- To use this feature, choose **Present Slides…** in the sidebar and paste the address of the slides (or pick one of the last five), or append `?present=https://url-of-the-embedded-file` to your streaming URL; the popup builds that same address, so bookmarks keep working. While presenting, the same entry (**Change Slides…**, also the last icon in the control bar) swaps the slides in place or ends the presentation. The recent decks are remembered in that browser only.
 - This action will embed your chosen presentation or video in the stream's background.
 - You can then annotate or draw on the reMarkable tablet, with your input appearing over the embedded content in the stream.
 - Only the ink is shown: the white of the tablet's page is rendered transparent. Press `W` to switch to the opaque white page and back, for example to write on a blank sheet. The white page also hides the embedded content, so the whole window becomes a white board.
 - Press `Z` to put the embedded content on top of the drawing, for example to click a link or play a video in it, and again to put the drawing back on top. The shortcuts reach the page only while it has the keyboard: after clicking inside the embedded content, click outside it (the sidebar or the control bar) first.
-- Nothing else covers the slides while you present. Move the pointer to show a small control bar: the connection, then icons for white board, slides on top, block touch, laser, trail, rotate and full screen (hover one for its name and key; the sidebar lists them by name). It fades out again once the pointer rests. A hint with the keys `W`, `Z`, `I`, `L` and `F` appears the first time only, and a lost connection shows as a small label, or as a card with Try Again when the tablet stays unreachable.
+- Nothing else covers the slides while you present. Move the pointer to show a small control bar: the connection, then icons for white board, slides on top, block touch, laser, trail, rotate, full screen and change slides (hover one for its name and key; the sidebar lists them by name). It fades out again once the pointer rests. A hint with the keys `W`, `Z`, `I`, `L` and `F` appears the first time only, and a lost connection shows as a small label, or as a card with Try Again when the tablet stays unreachable.
 
 ### Swipe Gestures
 
