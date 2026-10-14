@@ -11,6 +11,9 @@ let pendingBuffer = new Uint8Array(0);
 // AbortController to cancel the stream fetch on terminate
 let abortController = null;
 
+// Set once a frame could not be applied (requestResync).
+let desynced = false;
+
 // Frame type constants (must match server)
 const FRAME_TYPE_FULL = 0x00;  // Deprecated: uncompressed full frame
 const FRAME_TYPE_DELTA = 0x01;
@@ -146,8 +149,22 @@ async function initiateStream() {
 	}
 }
 
+// A frame that cannot be applied leaves this copy of the screen out of step
+// with the server's, and later deltas never repair it (they only carry what
+// changed since). Stop reading and let the page reconnect: a new stream starts
+// with a full frame.
+function requestResync(reason) {
+	console.error('Stream out of step:', reason);
+	desynced = true;
+	if (abortController) {
+		abortController.abort();
+	}
+	postMessage({ type: 'resync', message: reason });
+}
+
 // Process delta-encoded data with frame header parsing
 async function processDeltaData(chunkData, imageData, pixelDataSize) {
+
 	// Append new data to pending buffer
 	const newBuffer = new Uint8Array(pendingBuffer.length + chunkData.length);
 	newBuffer.set(pendingBuffer);
@@ -155,7 +172,7 @@ async function processDeltaData(chunkData, imageData, pixelDataSize) {
 	pendingBuffer = newBuffer;
 
 	// Process complete frames from buffer
-	while (pendingBuffer.length >= 4) {
+	while (pendingBuffer.length >= 4 && !desynced) {
 		// Read 4-byte header
 		const frameType = pendingBuffer[0];
 		const payloadLen = pendingBuffer[1] | (pendingBuffer[2] << 8) | (pendingBuffer[3] << 16);
@@ -185,10 +202,14 @@ async function processDeltaData(chunkData, imageData, pixelDataSize) {
 			try {
 				runs = fzstd.decompress(payload);
 			} catch (err) {
-				console.error('Zstd delta decompression failed:', err);
-				continue;
+				requestResync('Zstd delta decompression failed: ' + err);
+				return;
 			}
 			handleDeltaFrame(runs, imageData, pixelDataSize);
+		} else {
+			// Skipping it would leave the later deltas on a wrong picture.
+			requestResync('Unknown frame type ' + frameType);
+			return;
 		}
 	}
 }
@@ -202,22 +223,28 @@ async function handleFullFrame(payload, imageData, pixelDataSize, compressionTyp
 		try {
 			frameData = fzstd.decompress(payload);
 		} catch (err) {
-			console.error('Zstd decompression failed:', err);
+			requestResync('Zstd decompression failed: ' + err);
 			return;
 		}
 	} else if (compressionType === 'gzip') {
-		// Decompress using DecompressionStream API (legacy support)
+		// Decompress using DecompressionStream API (legacy support). A
+		// failure rejects the reads; the writer's promises are left to that.
 		const ds = new DecompressionStream('gzip');
 		const writer = ds.writable.getWriter();
-		writer.write(payload);
-		writer.close();
+		writer.write(payload).catch(() => {});
+		writer.close().catch(() => {});
 
 		const reader = ds.readable.getReader();
 		const chunks = [];
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			chunks.push(value);
+		try {
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				chunks.push(value);
+			}
+		} catch (err) {
+			requestResync('Gzip decompression failed: ' + err);
+			return;
 		}
 
 		// Concatenate chunks
@@ -231,7 +258,7 @@ async function handleFullFrame(payload, imageData, pixelDataSize, compressionTyp
 	}
 
 	if (frameData.length !== pixelDataSize) {
-		console.error('Full frame size mismatch:', frameData.length, 'expected:', pixelDataSize);
+		requestResync('Full frame size mismatch: ' + frameData.length + ', expected ' + pixelDataSize);
 		return;
 	}
 
@@ -259,7 +286,10 @@ function handleDeltaFrame(payload, imageData, pixelDataSize) {
 
 		if ((lengthByte & 0x80) === 0) {
 			// Short run: [1 byte length] [2 bytes offset LE] [data]
-			if (pos + 3 > payload.length) break;
+			if (pos + 3 > payload.length) {
+				requestResync('Delta run header truncated');
+				return;
+			}
 
 			runLength = lengthByte;
 			relativeOffset = payload[pos + 1] | (payload[pos + 2] << 8);
@@ -267,7 +297,10 @@ function handleDeltaFrame(payload, imageData, pixelDataSize) {
 			pos = dataStart + runLength * 4;
 		} else {
 			// Long run: [1 byte 0x80|len_high] [1 byte len_low] [3 bytes offset LE] [data]
-			if (pos + 5 > payload.length) break;
+			if (pos + 5 > payload.length) {
+				requestResync('Delta run header truncated');
+				return;
+			}
 
 			runLength = ((lengthByte & 0x7F) << 8) | payload[pos + 1];
 			relativeOffset = payload[pos + 2] | (payload[pos + 3] << 8) | (payload[pos + 4] << 16);
@@ -277,8 +310,8 @@ function handleDeltaFrame(payload, imageData, pixelDataSize) {
 
 		// Validate we have enough data
 		if (pos > payload.length) {
-			console.error('Delta frame truncated');
-			break;
+			requestResync('Delta frame truncated');
+			return;
 		}
 
 		// Apply the run: advance by offset, then copy pixels
@@ -286,8 +319,8 @@ function handleDeltaFrame(payload, imageData, pixelDataSize) {
 		const dataLen = runLength * 4;
 
 		if (frameOffset + dataLen > pixelDataSize) {
-			console.error('Delta run exceeds frame bounds');
-			break;
+			requestResync('Delta run exceeds frame bounds');
+			return;
 		}
 
 		// Copy changed pixels to previousFrame (bulk native memcpy)
