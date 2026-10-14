@@ -32,6 +32,17 @@
 					<h3>reMarkable</h3>
 				</div>
 				<ul class="menu">
+					<li id="slidesMenuItem">
+						<button id="slidesButton" class="apple-button" aria-label="Present slides: paste the address of a deck" aria-haspopup="dialog">
+							<svg class="button-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+								<rect x="3" y="4" width="18" height="12" rx="2"/>
+								<path d="M12 16v4M8 20h8"/>
+							</svg>
+							<span id="slidesButtonText">Present Slides…</span>
+							<span class="menu-shortcut" aria-hidden="true"></span>
+							<div class="button-tooltip">Paste the address of a reveal.js or Quarto deck</div>
+						</button>
+					</li>
 					<li>
 						<button id="rotate" class="apple-button" aria-label="Toggle orientation (press R)" aria-pressed="false">
 							<svg class="button-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -207,6 +218,10 @@ Currently: <span id="layerOrderStatus">Drawing on Top</span></div>
 				<button type="button" id="presentFullscreen" class="present-item" aria-pressed="false" aria-label="Full screen (F)" data-tip="Full screen · F">
 					<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>
 				</button>
+				<span class="present-sep"></span>
+				<button type="button" id="presentSlides" class="present-item" aria-label="Change slides" aria-haspopup="dialog" data-tip="Change slides">
+					<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="12" height="8.5" rx="1.5"/><path d="M8 11v2.5M5.5 13.5h5"/></svg>
+				</button>
 			</div>
 			<div id="presentKeyHint" class="present-key-hint" aria-hidden="true">
 				<span class="present-key"><span class="present-keycap">W</span>White board</span>
@@ -228,6 +243,30 @@ Currently: <span id="layerOrderStatus">Drawing on Top</span></div>
 					<button type="button" id="presentRetry" class="present-primary">Try Again</button>
 				</div>
 			</div>
+			<!-- Present Slides: paste a deck's address, or pick a recent one. Inside
+			     #container so it also shows in full screen. -->
+			<dialog id="slidesDialog" class="slides-dialog" aria-labelledby="slidesTitle">
+				<form id="slidesForm" class="slides-form" novalidate>
+					<h2 id="slidesTitle">Present Slides</h2>
+					<div class="form-group">
+						<label for="slidesAddress">Address of the slides</label>
+						<input type="url" id="slidesAddress" name="address" placeholder="https://…" autocomplete="url" autocapitalize="off" spellcheck="false">
+					</div>
+					<div id="slidesError" class="slides-error" role="alert" hidden></div>
+					<div id="slidesRecent" class="slides-recent" hidden>
+						<h3>Recent</h3>
+						<ul id="slidesRecentList" class="slides-recent-list"></ul>
+					</div>
+					<p class="slides-note">If the slides stay blank, that site does not allow being shown inside another page.</p>
+					<div class="slides-actions">
+						<button type="button" id="slidesEnd" class="slides-secondary" hidden>End Presentation</button>
+						<div class="slides-actions-main">
+							<button type="button" id="slidesCancel" class="slides-secondary">Cancel</button>
+							<button type="submit" class="slides-primary">Present</button>
+						</div>
+					</div>
+				</form>
+			</dialog>
 		</div>
 
 		<!-- Help Overlay -->
@@ -368,5 +407,6 @@ Currently: <span id="layerOrderStatus">Drawing on Top</span></div>
 		<script src="uiInteractions.js"></script>
 		<script src="workersHandling.js"></script>
 		<script src="presentation.js"></script>
+		<script src="slidesDialog.js"></script>
 	</body>
 </html>
