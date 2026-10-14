@@ -6,6 +6,9 @@ let reconnectTimeout = null;
 let isReconnecting = false;
 // Refusals in a row (429: another connection holds the stream).
 let rateLimitedRetries = 0;
+// When the stream last started over because a frame could not be applied.
+const STREAM_RESYNC_MIN_INTERVAL_MS = 5000;
+let lastStreamResync = 0;
 
 // Names this page to the server, so the stream it opens again after a lost
 // connection replaces its own old one, which the server may not have
@@ -119,6 +122,21 @@ function handleStreamMessage(event) {
 			// Handle the update
 			const frameData = event.data.data;
 			updateTexture(frameData, portrait, 1);
+			break;
+		case 'resync':
+			// The page's copy of the screen fell out of step: start over at
+			// once with a full frame. A second time within a few seconds means
+			// something keeps failing, so the usual reconnect with its backoff
+			// takes over.
+			console.warn('Stream resync:', data.message);
+			if (Date.now() - lastStreamResync < STREAM_RESYNC_MIN_INTERVAL_MS) {
+				if (!isReconnecting) {
+					attemptStreamReconnect();
+				}
+			} else {
+				lastStreamResync = Date.now();
+				restartStreamWorker();
+			}
 			break;
 		case 'error':
 			console.error('Error from worker:', event.data.message);

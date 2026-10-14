@@ -275,3 +275,45 @@ func TestDeltaCompressionRatio(t *testing.T) {
 		t.Errorf("compressed delta (%d) should be smaller than raw (%d)", len(out), raw)
 	}
 }
+
+// TestRoundTrip_WideBand covers a change that spans whole rows for longer than
+// a long run can describe (32767 pixels, about 20 rows of the Paper Pro): the
+// tablet's sleep banner, a menu, a zoom. The encoder must split such a run, or
+// the client reads pixel data as run headers and paints it in the wrong place.
+func TestRoundTrip_WideBand(t *testing.T) {
+	const (
+		width  = 1632
+		height = 2154
+		size   = width * height * 4
+	)
+
+	for _, rows := range []int{19, 21, 60, 200} {
+		enc := NewEncoder(DefaultThreshold)
+		dst := newDecodeStream(t, size)
+
+		frame := newPageFrame(size)
+		var buf bytes.Buffer
+		if err := enc.Encode(frame, &buf); err != nil {
+			t.Fatalf("rows=%d: first frame: %v", rows, err)
+		}
+		dst.feed(buf.Bytes())
+
+		// A dark bar across the full width, then gone again.
+		for r := 40; r < 40+rows; r++ {
+			drawStroke(frame, width, r, 0, width)
+		}
+		for step, f := range [][]byte{frame, newPageFrame(size)} {
+			buf.Reset()
+			if err := enc.Encode(f, &buf); err != nil {
+				t.Fatalf("rows=%d step %d: encode: %v", rows, step, err)
+			}
+			dst.feed(buf.Bytes())
+			if !bytes.Equal(dst.frame, f) {
+				t.Fatalf("rows=%d step %d: decoded framebuffer differs from source (types %v)", rows, step, dst.types)
+			}
+		}
+		if dst.types[1] == FrameTypeFullZstd {
+			t.Fatalf("rows=%d: expected a delta for the bar, got a full frame", rows)
+		}
+	}
+}

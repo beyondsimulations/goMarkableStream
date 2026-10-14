@@ -88,6 +88,13 @@ const (
 	maxShortOffset = 0xFFFF // 64KB - 1
 	maxShortLength = 127    // 7 bits
 
+	// maxLongLength is the most pixels one long run can carry (15 bits): about
+	// 20 rows of the Paper Pro. A longer change, such as a banner or menu
+	// across the full width, goes out as several runs (see appendLongRun).
+	// The 24-bit offset needs no such care: a frame is below 16 MiB, as the
+	// 24-bit payload length in the frame header already requires.
+	maxLongLength = 0x7FFF
+
 	// bytesPerPixel defines the pixel format for delta encoding.
 	// Hardcoded to 4 for BGRA32 format (matches remarkable.BytesPerPixelBGRA).
 	// All current reMarkable devices use BGRA in streaming mode:
@@ -547,8 +554,9 @@ func (e *Encoder) calculateDeltaSize(runs []changeRun) int {
 			// Short run: 1 byte length + 2 bytes offset + pixel data
 			size += 1 + 2 + len(run.data)
 		} else {
-			// Long run: 2 bytes length + 3 bytes offset + pixel data
-			size += 2 + 3 + len(run.data)
+			// Long runs: 2 bytes length + 3 bytes offset each, + pixel data
+			pieces := (run.length + maxLongLength - 1) / maxLongLength
+			size += pieces*(2+3) + len(run.data)
 		}
 	}
 	return size
@@ -675,20 +683,36 @@ func (e *Encoder) assembleDeltaFrame(runs []changeRun, payloadSize int) []byte {
 			buf[pos] = byte(run.length)
 			binary.LittleEndian.PutUint16(buf[pos+1:pos+3], uint16(run.offset))
 			pos += 3
+			copy(buf[pos:], run.data)
+			pos += len(run.data)
 		} else {
-			// Long run: 2 bytes length (0x80|high, low) + 3 bytes offset LE + pixel data
-			buf[pos] = 0x80 | byte((run.length>>8)&0x7F)
-			buf[pos+1] = byte(run.length & 0xFF)
-			buf[pos+2] = byte(run.offset & 0xFF)
-			buf[pos+3] = byte((run.offset >> 8) & 0xFF)
-			buf[pos+4] = byte((run.offset >> 16) & 0xFF)
-			pos += 5
+			pos = appendLongRun(buf, pos, run.offset, run.data)
 		}
-		copy(buf[pos:], run.data)
-		pos += len(run.data)
 	}
 
 	return buf[:pos]
+}
+
+// appendLongRun writes data as long runs into buf at pos and returns the new
+// position. A long run holds at most maxLongLength pixels, so a longer one is
+// split: the first piece carries the run's offset, the rest follow directly
+// (offset 0). Writing one oversized run instead would drop the length's high
+// bits, and the client would read the rest of the pixels as run headers.
+func appendLongRun(buf []byte, pos, offset int, data []byte) int {
+	for len(data) > 0 {
+		pixels := min(len(data)/bytesPerPixel, maxLongLength)
+		// Long run: 2 bytes length (0x80|high, low) + 3 bytes offset LE + pixel data
+		buf[pos] = 0x80 | byte((pixels>>8)&0x7F)
+		buf[pos+1] = byte(pixels & 0xFF)
+		buf[pos+2] = byte(offset & 0xFF)
+		buf[pos+3] = byte((offset >> 8) & 0xFF)
+		buf[pos+4] = byte((offset >> 16) & 0xFF)
+		pos += 5
+		pos += copy(buf[pos:], data[:pixels*bytesPerPixel])
+		data = data[pixels*bytesPerPixel:]
+		offset = 0
+	}
+	return pos
 }
 
 // Reset clears the encoder state, forcing the next frame to be a full frame.
