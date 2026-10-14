@@ -3355,6 +3355,14 @@ body.presenting {
     }
 }
 
+/* The popup only fades, so it keeps its fade under Reduce Motion (the
+   general rule there ends animations at once). */
+@media (prefers-reduced-motion: reduce) {
+    .slides-dialog[open] {
+        animation-duration: 0.2s !important;
+    }
+}
+
 .slides-dialog::backdrop {
     background: rgba(0, 0, 0, 0.25);
 }

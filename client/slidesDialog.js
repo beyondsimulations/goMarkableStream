@@ -6,8 +6,11 @@ const RECENT_SLIDES_KEY = 'goMarkableStream_recentSlides';
 const RECENT_SLIDES_MAX = 5;
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 
+let slidesOpenedByPointer = false;
+
 // What was pasted, as the address to present ({url}), or what is wrong with
-// it ({error}). pageProtocol is this page's, 'https:' or 'http:'.
+// it ({error}). pageProtocol is this page's, 'https:' or 'http:'. Only web
+// addresses pass, never javascript: or data: ones.
 function normalizeSlidesAddress(text, pageProtocol) {
 	let address = text.trim();
 	if (!address) {
@@ -17,9 +20,16 @@ function normalizeSlidesAddress(text, pageProtocol) {
 	if (/\s/.test(address)) {
 		return { error: 'That is not a web address.' };
 	}
-	// "example.com/talk" means https://example.com/talk.
+	// "example.com/talk" means https://example.com/talk; a deck on this
+	// computer (a Quarto preview) is usually plain http.
 	if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(address)) {
-		address = 'https://' + address;
+		let host = '';
+		try {
+			host = new URL('https://' + address).hostname;
+		} catch (e) {
+			// Reported below.
+		}
+		address = (LOCAL_HOSTS.includes(host) ? 'http://' : 'https://') + address;
 	}
 	let url;
 	try {
@@ -31,11 +41,17 @@ function normalizeSlidesAddress(text, pageProtocol) {
 		return { error: 'Use an address that starts with https://.' };
 	}
 	// The browser shows nothing from http:// inside an https page, except
-	// from this computer (a Quarto preview, for example).
+	// from this computer.
 	if (pageProtocol === 'https:' && url.protocol === 'http:' && !LOCAL_HOSTS.includes(url.hostname)) {
 		return { error: 'This page uses https, so the browser does not show http:// slides in it. Use the https:// address of the slides.' };
 	}
 	return { url: url.href };
+}
+
+// The deck in the page's address (?present=), checked, or null.
+function currentSlidesURL() {
+	const presentURL = getQueryParam('present');
+	return presentURL ? normalizeSlidesAddress(presentURL, window.location.protocol).url || null : null;
 }
 
 // The recent decks live in this browser only. Blocked storage throws: then
@@ -65,26 +81,24 @@ function forgetSlides(url) {
 	saveRecentSlides(loadRecentSlides().filter((other) => other !== url));
 }
 
-// The deck shown now, as presentSlides stores it, or null.
-function currentSlidesURL() {
-	const presentURL = getQueryParam('present');
-	return presentURL ? normalizeSlidesAddress(presentURL, window.location.protocol).url || null : null;
-}
-
 function presentSlides(url) {
 	rememberSlides(url);
-	const params = new URLSearchParams(window.location.search);
-	params.set('present', url);
-	const address = window.location.pathname + '?' + params.toString();
 	if (isPresenting()) {
 		// Another deck in the same mode: swap the slides in place, so the
-		// stream, the touch block and the modes stay as they are.
-		history.replaceState(null, '', address);
-		iFrame.src = url;
+		// stream, the touch block and the modes stay as they are. The same
+		// deck again stays where it is rather than reloading at slide 1.
+		if (url !== currentSlidesURL()) {
+			const params = new URLSearchParams(window.location.search);
+			params.set('present', url);
+			history.replaceState(null, '', window.location.pathname + '?' + params.toString());
+			iFrame.src = url;
+		}
 		document.getElementById('slidesDialog').close();
 		return;
 	}
-	window.location.assign(address);
+	const params = new URLSearchParams(window.location.search);
+	params.set('present', url);
+	window.location.assign(window.location.pathname + '?' + params.toString());
 }
 
 function endPresentation() {
@@ -114,7 +128,7 @@ function presentSlidesAddress(text) {
 // One row per recent deck: its host, then the rest of the address. While
 // presenting, the current deck is already in the field and not listed.
 function renderRecentSlides() {
-	const current = isPresenting() ? currentSlidesURL() : null;
+	const current = currentSlidesURL();
 	const list = loadRecentSlides().filter((url) => url !== current);
 	const rows = document.getElementById('slidesRecentList');
 	rows.replaceChildren();
@@ -143,7 +157,11 @@ function renderRecentSlides() {
 		restText.className = 'slides-recent-path';
 		restText.textContent = rest;
 		open.append(hostText, restText);
-		open.addEventListener('click', () => presentSlidesAddress(url));
+		open.addEventListener('click', () => {
+			// In the field too, so a message about it refers to it.
+			document.getElementById('slidesAddress').value = url;
+			presentSlidesAddress(url);
+		});
 
 		const remove = document.createElement('button');
 		remove.type = 'button';
@@ -164,29 +182,31 @@ function renderRecentSlides() {
 	document.getElementById('slidesRecent').hidden = list.length === 0;
 }
 
-function openSlidesDialog() {
+// address and error fill the popup from an address that could not be
+// presented; otherwise it shows the current deck (or nothing).
+function openSlidesDialog(address = null, error = '') {
 	const dialog = document.getElementById('slidesDialog');
 	if (dialog.open) {
 		return;
 	}
-	const presenting = isPresenting();
-	document.getElementById('slidesTitle').textContent = presenting ? 'Change Slides' : 'Present Slides';
-	document.getElementById('slidesEnd').hidden = !presenting;
 	const input = document.getElementById('slidesAddress');
-	input.value = presenting ? (getQueryParam('present') || '') : '';
-	showSlidesError('');
+	input.value = address !== null ? address : (currentSlidesURL() || '');
+	showSlidesError(error);
 	renderRecentSlides();
 	dialog.showModal();
-	// While presenting, the current address is selected, so a paste
-	// replaces it.
+	// The address is selected, so a paste replaces it.
 	input.focus();
 	input.select();
 }
 
 (function initSlidesDialog() {
 	const dialog = document.getElementById('slidesDialog');
-	document.getElementById('slidesButton').addEventListener('click', openSlidesDialog);
-	document.getElementById('presentSlides').addEventListener('click', openSlidesDialog);
+	for (const id of ['slidesButton', 'presentSlides']) {
+		document.getElementById(id).addEventListener('click', (e) => {
+			slidesOpenedByPointer = e.detail > 0;
+			openSlidesDialog();
+		});
+	}
 	document.getElementById('slidesForm').addEventListener('submit', (e) => {
 		e.preventDefault();
 		presentSlidesAddress(document.getElementById('slidesAddress').value);
@@ -194,21 +214,38 @@ function openSlidesDialog() {
 	document.getElementById('slidesAddress').addEventListener('input', () => showSlidesError(''));
 	document.getElementById('slidesCancel').addEventListener('click', () => dialog.close());
 	document.getElementById('slidesEnd').addEventListener('click', endPresentation);
-	// A click on the dimmed page around the popup closes it (the form fills
-	// the dialog, so only the backdrop is the dialog itself).
+
+	// A click on the dimmed page around the popup closes it. The form fills
+	// the dialog, so only the backdrop is the dialog itself; a drag that
+	// starts in the field and ends outside does not count.
+	let pressedOnBackdrop = false;
+	dialog.addEventListener('pointerdown', (e) => {
+		pressedOnBackdrop = e.target === dialog;
+	});
 	dialog.addEventListener('click', (e) => {
-		if (e.target === dialog) {
+		if (pressedOnBackdrop && e.target === dialog) {
 			dialog.close();
+		}
+		pressedOnBackdrop = false;
+	});
+
+	// Closing gives the focus back to the button that opened the popup. A
+	// clicked control-bar button lets go of it, as the bar's other buttons
+	// do, so the bar can fade out over the slides.
+	dialog.addEventListener('close', () => {
+		const active = document.activeElement;
+		if (slidesOpenedByPointer && active && active.closest('#presentTray')) {
+			active.blur();
 		}
 	});
 
-	if (getQueryParam('present')) {
+	const current = currentSlidesURL();
+	if (current) {
 		document.getElementById('slidesButtonText').textContent = 'Change Slides…';
 		document.getElementById('slidesButton').setAttribute('aria-label', 'Change slides: paste the address of another deck');
+		document.getElementById('slidesTitle').textContent = 'Change Slides';
+		document.getElementById('slidesEnd').hidden = false;
 		// A deck opened from a link or a bookmark joins the recent ones too.
-		const current = currentSlidesURL();
-		if (current) {
-			rememberSlides(current);
-		}
+		rememberSlides(current);
 	}
 })();
